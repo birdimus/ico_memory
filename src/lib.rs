@@ -1,6 +1,6 @@
 #![cfg_attr(not(any(test, feature = "use-std")), no_std)]
 
-pub mod sync;
+pub mod spin;
 
 #[cfg(not(any(test, feature = "use-std")))]
 #[panic_handler]
