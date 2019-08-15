@@ -22,7 +22,7 @@ impl<T> IndexSpinlock<T> {
         };
     }
 
-    #[cfg(any(test, feature = "use-std"))]
+    #[cfg(any(test, feature = "std"))]
     #[inline(always)]
     fn increment_yield_counter(value: u32) -> u32 {
         if value > 1 {
@@ -34,7 +34,7 @@ impl<T> IndexSpinlock<T> {
 
     #[inline(always)]
     pub fn lock(&self) -> IndexSpinlockGuard<T> {
-        #[cfg(any(test, feature = "use-std"))]
+        #[cfg(any(test, feature = "std"))]
         let mut counter = 0;
         let mut lock_value = self.lock.load(Ordering::Acquire);
         loop {
@@ -55,7 +55,7 @@ impl<T> IndexSpinlock<T> {
                     Err(x) => lock_value = x,
                 }
             } else {
-                #[cfg(any(test, feature = "use-std"))]
+                #[cfg(any(test, feature = "std"))]
                 {
                     counter = IndexSpinlock::<T>::increment_yield_counter(counter);
                 }
