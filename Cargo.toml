@@ -10,7 +10,7 @@ categories = ["no-std", "game-engines"]
 keywords = ["alloc"]
 
 [dependencies]
-
+libc = {version ="0.2.61", default-features = false }
 
 [lib]
 name = "ico_memory"
@@ -27,5 +27,5 @@ opt-level = 3
 panic = "abort"
 
 [features]
-use-std = []
-#default = ["use-std"]
+std = []
+default = ["std"]

@@ -4,7 +4,6 @@ use core::ops::DerefMut;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
 
-
 pub struct RWSpinLock<T> {
     lock: AtomicU32,
     data: UnsafeCell<T>,
@@ -36,9 +35,9 @@ impl<T> RWSpinLock<T> {
                 ) {
                     Ok(_) => {
                         return RWSpinReadGuard {
-                            lock: &self.lock,
-                            data: unsafe { &*self.data.get() },
-                        }
+                            lock: self,
+                            // data: unsafe { &*self.data.get() },
+                        };
                     }
                     Err(x) => lock_value = x,
                 }
@@ -64,9 +63,9 @@ impl<T> RWSpinLock<T> {
                 ) {
                     Ok(_) => {
                         return RWSpinWriteGuard {
-                            lock: &self.lock,
-                            data: unsafe { &mut *self.data.get() },
-                        }
+                            lock: self,
+                            // data: unsafe { &mut *self.data.get() },
+                        };
                     }
                     Err(_x) => {}
                 }
@@ -96,9 +95,9 @@ impl<T> RWSpinLock<T> {
                 ) {
                     Ok(_) => {
                         return RWSpinWriteGuard {
-                            lock: &self.lock,
-                            data: unsafe { &mut *self.data.get() },
-                        }
+                            lock: self,
+                            // data: unsafe { &mut *self.data.get() },
+                        };
                     }
                     Err(_x) => {}
                 }
@@ -124,44 +123,42 @@ impl<T> RWSpinLock<T> {
     }
 }
 pub struct RWSpinReadGuard<'a, T: 'a> {
-    lock: &'a AtomicU32,
-    data: &'a T,
+    lock: &'a RWSpinLock<T>,
 }
 
 impl<'a, T> Drop for RWSpinReadGuard<'a, T> {
     fn drop(&mut self) {
         //println!("dropped read");
-        self.lock.fetch_sub(1, Ordering::SeqCst);
+        self.lock.lock.fetch_sub(1, Ordering::SeqCst);
     }
 }
 impl<'a, T> Deref for RWSpinReadGuard<'a, T> {
     type Target = T;
     fn deref<'b>(&'b self) -> &'b T {
-        &*self.data
+        return unsafe { &*self.lock.data.get() };
     }
 }
 
 pub struct RWSpinWriteGuard<'a, T: 'a> {
-    lock: &'a AtomicU32,
-    data: &'a mut T,
+    lock: &'a RWSpinLock<T>,
 }
 
 impl<'a, T> Drop for RWSpinWriteGuard<'a, T> {
     fn drop(&mut self) {
         //println!("dropped write");
-        self.lock.store(0, Ordering::SeqCst);
+        self.lock.lock.store(0, Ordering::SeqCst);
         //self.lock.fetch_and(!RWSpinLock::<T>::WRITE_MASK, Ordering::SeqCst);
     }
 }
 impl<'a, T> Deref for RWSpinWriteGuard<'a, T> {
     type Target = T;
     fn deref<'b>(&'b self) -> &'b T {
-        &*self.data
+        return unsafe { &*self.lock.data.get() };
     }
 }
 
 impl<'a, T> DerefMut for RWSpinWriteGuard<'a, T> {
     fn deref_mut<'b>(&'b mut self) -> &'b mut T {
-        &mut *self.data
+        return unsafe { &mut *self.lock.data.get() };
     }
 }
