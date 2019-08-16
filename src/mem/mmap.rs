@@ -3,9 +3,9 @@ extern crate libc;
 /// Not Copy or Clone so we don't lose track of allocations!
 #[derive(Debug)]
 #[repr(C, align(16))]
-pub struct MapAlloc {
-    size: usize,
-    memory: *mut u8,
+pub(crate) struct MapAlloc { 
+    pub(crate) memory: *mut u8,
+    pub(crate) size: usize,
 }
 
 impl MapAlloc {
@@ -39,14 +39,14 @@ pub fn get_page_aligned_size(size: usize) -> usize {
 }
 
 #[inline(always)]
-pub fn free_page_aligned(alloc: MapAlloc) {
+pub(crate) unsafe fn free_page_aligned(ptr : *mut u8, size:usize) {
     unsafe {
-        libc::munmap(alloc.memory as *mut libc::c_void, alloc.size);
+        libc::munmap(ptr as *mut libc::c_void, size);
     }
 }
 
 #[inline(always)]
-pub fn alloc_page_aligned(size: usize) -> MapAlloc {
+pub(crate) fn alloc_page_aligned(size: usize) -> MapAlloc {
     let alloc_size = get_page_aligned_size(size);
     unsafe {
         let p: *mut libc::c_void = libc::mmap(

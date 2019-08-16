@@ -1,2 +1,2 @@
-pub mod memory_pool64;
+pub mod memory_pool;
 pub mod mmap;

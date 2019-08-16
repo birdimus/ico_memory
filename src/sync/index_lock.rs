@@ -88,10 +88,16 @@ impl<T> IndexSpinlock<T> {
         return self.lock.load(Ordering::Relaxed) & IndexSpinlock::<T>::MASK;
     }
 }
+
+unsafe impl<T : Send> Send for IndexSpinlock<T> {}
+unsafe impl<T : Sync> Sync for IndexSpinlock<T> {}
+
 pub struct IndexSpinlockGuard<'a, T: 'a> {
     lock: &'a IndexSpinlock<T>,
     value: u32,
 }
+
+
 
 impl<'a, T> IndexSpinlockGuard<'a, T> {
     /// Get the value that was set on the lock at acquisition time.
@@ -123,3 +129,6 @@ impl<'a, T> DerefMut for IndexSpinlockGuard<'a, T> {
         return unsafe { &mut *self.lock.data.get() };
     }
 }
+
+#[cfg(test)]
+mod test;
