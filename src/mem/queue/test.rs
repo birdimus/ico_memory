@@ -1,5 +1,5 @@
 use super::*;
-use crate::collections::queue::Queue;
+use crate::mem::queue::Queue;
 use std::thread;
 use std::sync::Arc;
 use std::time::Instant;

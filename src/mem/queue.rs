@@ -32,7 +32,7 @@ impl<T> Unique<T> {
 
 /// A MPMC Queue based on Dmitry Vyukov's queue.  
 /// However, there is a slight modification where head and tail can be locked, as my implementation of Dmitry's queue failed some tests under peak contention  - and I've opted for a more conservative queue
-pub struct Queue{
+pub struct Queue<const MAX_CAPACITY : usize>{
 	capacity : usize,
 	capacity_mask : u32,
 	_cache_pad_0: [u8; 64],
@@ -56,16 +56,16 @@ pub struct Queue{
 
 
 struct ZST{}
-impl Queue{
+impl<const MAX_CAPACITY : usize> Queue<{MAX_CAPACITY}>{
 	// const ENQUEUED : usize = 1;//1<<31;
 	// const ENQUEUED_MASK : usize = !1;//Queue::<{CAPACITY}>::ENQUEUED -1;
 
 	// const MASK : usize = {CAPACITY}- 1;
-	pub fn new(capacity : usize)->Queue{
+	pub fn new::<{MAX_CAPACITY}>(capacity : usize)->Queue<{MAX_CAPACITY}>{
 		assert!(capacity.is_power_of_two());
 		let alloc_size = core::mem::size_of::<AtomicUsize>() * capacity;
 		let allocation = mmap::alloc_page_aligned(alloc_size);
-		return Queue{
+		return Queue::<{MAX_CAPACITY}>{
 			capacity : capacity,
 			capacity_mask: (capacity - 1) as u32,
 			head:IndexSpinlock::<ZST>::new(0, ZST{}),
@@ -117,7 +117,7 @@ impl Queue{
 	}
 }
 
-impl Drop for Queue {
+impl<const MAX_CAPACITY : usize> Drop for Queue<{MAX_CAPACITY}> {
     fn drop(&mut self) {
     	unsafe{
     		mmap::free_page_aligned(self.ring_buffer.as_ptr() as *mut u8, self.allocation_size);
@@ -125,8 +125,8 @@ impl Drop for Queue {
 	}
 }
 
-unsafe impl Send for Queue {}
-unsafe impl Sync for Queue {}
+unsafe impl<const MAX_CAPACITY : usize> Send for Queue<{MAX_CAPACITY}> {}
+unsafe impl<const MAX_CAPACITY : usize> Sync for Queue<{MAX_CAPACITY}> {}
 
 #[cfg(test)]
 mod test;
