@@ -1,5 +1,7 @@
 use core::cell::UnsafeCell;
 use core::sync::atomic::AtomicU32;
+use core::sync::atomic::AtomicUsize;
+use core::num::NonZeroUsize;
 use core::sync::atomic::Ordering;
 use crate::sync::index_lock::IndexSpinlock;
 use crate::mem::mmap;
@@ -28,18 +30,20 @@ impl<T> Unique<T> {
     }
 }
 
-
-pub struct Queue<T, const CAPACITY: usize>{
+/// A MPMC Queue based on Dmitry Vyukov's queue.  
+/// However, there is a slight modification where head and tail can be locked, as my implementation of Dmitry's queue failed some tests under peak contention  - and I've opted for a more conservative queue
+pub struct Queue{
+	capacity : usize,
+	capacity_mask : u32,
 	_cache_pad_0: [u8; 64],
-	//ring_buffer : UnsafeCell< *mut [usize;{CAPACITY}]>,
 	allocation_size : usize,
-	ring_buffer : Unique<Option<T>>,
+	ring_buffer : Unique<AtomicUsize>,
 	_cache_pad_1: [u8; 64],
 	head : IndexSpinlock<ZST>,
 	_cache_pad_2: [u8; 64],
 	tail : IndexSpinlock<ZST>,
 	_cache_pad_3: [u8; 64],
-	_marker: PhantomData<T>, 
+
 
 }
 
@@ -48,74 +52,81 @@ pub struct Queue<T, const CAPACITY: usize>{
 // lock tail -- no more adds
 	//recheck count to make sure we didn't add 
 
-struct ZST{}
 
-impl <T, const CAPACITY: usize> Queue<T, {CAPACITY}>{
-	const ENQUEUED : usize = 1;//1<<31;
-	const ENQUEUED_MASK : usize = !1;//Queue::<{CAPACITY}>::ENQUEUED -1;
+
+
+struct ZST{}
+impl Queue{
+	// const ENQUEUED : usize = 1;//1<<31;
+	// const ENQUEUED_MASK : usize = !1;//Queue::<{CAPACITY}>::ENQUEUED -1;
 
 	// const MASK : usize = {CAPACITY}- 1;
-	pub fn new()->Queue<T, {CAPACITY}>{
-		let alloc_size = core::mem::size_of::<Option<T>>() * CAPACITY;
+	pub fn new(capacity : usize)->Queue{
+		assert!(capacity.is_power_of_two());
+		let alloc_size = core::mem::size_of::<AtomicUsize>() * capacity;
 		let allocation = mmap::alloc_page_aligned(alloc_size);
-		return Queue::<T, {CAPACITY}>{
+		return Queue{
+			capacity : capacity,
+			capacity_mask: (capacity - 1) as u32,
 			head:IndexSpinlock::<ZST>::new(0, ZST{}),
 			tail:IndexSpinlock::<ZST>::new(0, ZST{}),
-			ring_buffer: Unique::new(allocation.memory as *mut Option<T>),
+			ring_buffer: Unique::new(allocation.memory as *mut AtomicUsize),
 			allocation_size: allocation.size,
 			//ring_buffer: UnsafeCell::new(allocation.memory as *mut [usize;{CAPACITY}]),//unsafe{core::mem::zeroed()},//[unsafe{core::mem::zeroed()};{CAPACITY}],
 			 _cache_pad_0: [0;64],
 			 _cache_pad_1: [0;64],
 			 _cache_pad_2: [0;64],
 			 _cache_pad_3: [0;64],
-			 _marker: PhantomData,
 		};
 		
 	}
 
 
-	pub fn enqueue(&self, value : T) ->bool{	
+	pub fn enqueue(&self, value : NonZeroUsize) ->bool{	
+
+		let v = value.get();
+		debug_assert_ne!(v, 0);
 
 		let mut tail = self.tail.lock();
 		let tail_value = tail.read();
 		unsafe{
-		// let mut ring_buffer = unsafe { &mut *self.ring_buffer.get() };
-		let storage = ptr::read(self.ring_buffer.as_ptr().offset(tail_value as isize));// ring_buffer[tail_value as usize];
-		if(storage.is_some()){return false;}
-			ptr::write(self.ring_buffer.as_ptr().offset(tail_value as isize), Some(value));
+			let storage = self.ring_buffer.as_ptr().offset(tail_value as isize).as_ref().unwrap().load(Ordering::Relaxed);
+			if(storage != 0){return false;}
+			self.ring_buffer.as_ptr().offset(tail_value as isize).as_ref().unwrap().store(v, Ordering::Relaxed);
 		}
 		// ring_buffer[tail_value as usize] = value;
-		tail.write(tail_value.wrapping_add(1) & (CAPACITY as u32-1));
+		tail.write(tail_value.wrapping_add(1) & self.capacity_mask);
 		return true;
 	}
 
-	pub fn dequeue(&self) -> Option<T>{
+	pub fn dequeue(&self) -> Option<NonZeroUsize>{
 
 		let mut head = self.head.lock();
 		let head_value = head.read();
 		let mut storage;
 		unsafe{
-			// let mut ring_buffer = unsafe { &mut *self.ring_buffer.get() };
-			storage = ptr::read(self.ring_buffer.as_ptr().offset(head_value as isize));
-			// let storage = ring_buffer[head_value as usize];
-			if(storage.is_none()){return None;}
-			
-			ptr::write(self.ring_buffer.as_ptr().offset(head_value as isize), None);
+			storage = self.ring_buffer.as_ptr().offset(head_value as isize).as_ref().unwrap().load(Ordering::Relaxed);;
+			if(storage == 0){return None;}
+			self.ring_buffer.as_ptr().offset(head_value as isize).as_ref().unwrap().store(0, Ordering::Relaxed);
+
+			// ring_buffer[head_value as usize] = 0;
+			head.write(head_value.wrapping_add(1) & self.capacity_mask);
+			return Some(NonZeroUsize::new_unchecked(storage));
 		}
-		// ring_buffer[head_value as usize] = 0;
-		head.write(head_value.wrapping_add(1) & (CAPACITY as u32-1));
-		return storage;
+		
 	}
 }
 
-impl<T, const CAPACITY: usize> Drop for Queue<T, {CAPACITY}> {
+impl Drop for Queue {
     fn drop(&mut self) {
     	unsafe{
-    	mmap::free_page_aligned(self.ring_buffer.as_ptr() as *mut u8, self.allocation_size);
+    		mmap::free_page_aligned(self.ring_buffer.as_ptr() as *mut u8, self.allocation_size);
     	}
 	}
 }
 
-unsafe impl<T : Send, const CAPACITY: usize> Send for Queue<T, {CAPACITY}> {}
-unsafe impl<T : Sync, const CAPACITY: usize> Sync for Queue<T, {CAPACITY}> {}
+unsafe impl Send for Queue {}
+unsafe impl Sync for Queue {}
 
+#[cfg(test)]
+mod test;
