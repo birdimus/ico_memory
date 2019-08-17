@@ -4,16 +4,12 @@ use core::cell::UnsafeCell;
 use crate::mem::queue::Queue;
 use core::num::NonZeroUsize;
 use core::ptr;
-
-
-const QUEUE_SIZE : usize = 1024;
-
 struct MemoryPool{
 
 	active_chunk_remaining_free: IndexSpinlock<[mmap::MapAlloc; 1024]>,
 	block_size : usize,
 	block_count : usize,
-	free_queue : Queue<{QUEUE_SIZE}>,
+	free_queue : Queue,
 }
 
 impl MemoryPool {
@@ -31,7 +27,7 @@ impl MemoryPool {
         	block_size : block_size,
         	block_count : block_count,
             active_chunk_remaining_free: IndexSpinlock::new(0, unsafe { core::mem::zeroed() }),
-            free_queue : Queue::new(block_count * MemoryPool::MAX_CHUNKS ),
+            free_queue : Queue::new(),//block_count * MemoryPool::MAX_CHUNKS 
         };
     }
 
