@@ -6,17 +6,15 @@ mod test {
     use std::time::Instant;
 
 
-    struct ZST{
 
-    }
 
     #[test]
     fn indexspinlock_writers() {
         let now = Instant::now();
 
-        let mut spinlock = IndexSpinlock::<ZST>::new(0, ZST{});
+        let mut spinlock = IndexSpinlock::new(0);
         spinlock.set(1);
-        let index_lock : Arc<IndexSpinlock<ZST>> = Arc::new(spinlock);
+        let index_lock : Arc<IndexSpinlock> = Arc::new(spinlock);
         let thread_count = 16;
         {
             

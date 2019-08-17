@@ -4,10 +4,11 @@ use std::thread;
 use std::sync::Arc;
 use std::time::Instant;
 use core::num::NonZeroUsize;
-
+use std::sync::Mutex;
 
 
 static queue : Queue = Queue::new();
+
 #[test]
 fn mpmc() {
 	// assert_eq!(core::mem::size_of::<Option<NonZeroUsize>>(), core::mem::size_of::<usize>());

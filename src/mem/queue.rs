@@ -12,23 +12,22 @@ pub struct Queue{
 	_cache_pad_0: [u8; 64],
 	buffer : [usize; CAPACITY],
 	_cache_pad_1: [u8; 64],
-	head : IndexSpinlock<ZST>,
+	head : IndexSpinlock,
 	_cache_pad_2: [u8; 64],
-	tail : IndexSpinlock<ZST>,
+	tail : IndexSpinlock,
 	_cache_pad_3: [u8; 64],
 
 }
 
 
-struct ZST{}
 impl Queue{
 	const CAPACITY_MASK : u32 = CAPACITY as u32 - 1;
 
 	pub const fn new()->Queue{
 		return Queue{
 
-			head:IndexSpinlock::<ZST>::new(0, ZST{}),
-			tail:IndexSpinlock::<ZST>::new(0, ZST{}),
+			head:IndexSpinlock::new(0),
+			tail:IndexSpinlock::new(0),
 			buffer : [0; CAPACITY],
 			 _cache_pad_0: [0;64],
 			 _cache_pad_1: [0;64],
