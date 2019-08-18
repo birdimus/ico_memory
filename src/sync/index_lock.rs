@@ -4,9 +4,6 @@ use core::ops::DerefMut;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
 
-
-
-
 /// Holds up 2^31 values
 pub struct Spinlock<T> {
     lock: AtomicU32,
@@ -92,15 +89,13 @@ impl<T> Spinlock<T> {
     }
 }
 
-unsafe impl<T : Send> Send for Spinlock<T> {}
-unsafe impl<T : Sync> Sync for Spinlock<T> {}
+unsafe impl<T: Send> Send for Spinlock<T> {}
+unsafe impl<T: Sync> Sync for Spinlock<T> {}
 
 pub struct SpinlockGuard<'a, T: 'a> {
     lock: &'a Spinlock<T>,
     value: u32,
 }
-
-
 
 impl<'a, T> SpinlockGuard<'a, T> {
     /// Get the value that was set on the lock at acquisition time.
@@ -224,8 +219,6 @@ pub struct IndexSpinlockGuard<'a> {
     value: u32,
 }
 
-
-
 impl<'a> IndexSpinlockGuard<'a> {
     /// Get the value that was set on the lock at acquisition time.
     #[inline(always)]
@@ -243,10 +236,6 @@ impl<'a> Drop for IndexSpinlockGuard<'a> {
         self.lock.lock.store(self.value, Ordering::Release);
     }
 }
-
-
-
-
 
 #[cfg(test)]
 mod test;
