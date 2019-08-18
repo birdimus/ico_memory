@@ -5,6 +5,9 @@ use core::num::NonZeroUsize;
 use core::ptr;
 use core::sync::atomic::AtomicUsize;
 
+pub const MAX_CHUNKS_POT: usize = 10;
+pub const MAX_CHUNKS: usize = 1 <<MAX_CHUNKS_POT;
+
 struct BaseMemoryPool {
     active_chunk_remaining_free: Spinlock<[mmap::MapAlloc; 1024]>,
     block_size: usize,
@@ -16,13 +19,13 @@ impl BaseMemoryPool {
     const CHUNK_SHIFT: usize = 17;
     const MAX_CHUNKS: usize = 1024;
 
-    fn new(block_size: usize, block_count: usize) -> BaseMemoryPool {
-        assert!(block_size.is_power_of_two());
-        assert!(block_count.is_power_of_two() && block_count <= BaseMemoryPool::MAX_BLOCKS);
+    const fn new(block_size: usize, block_count: usize) -> BaseMemoryPool {
+        // assert!(block_size.is_power_of_two());
+        // assert!(block_count.is_power_of_two() && block_count <= BaseMemoryPool::MAX_BLOCKS);
         return BaseMemoryPool {
             block_size: block_size,
             block_count: block_count,
-            active_chunk_remaining_free: Spinlock::new(0, unsafe { core::mem::zeroed() }),
+            active_chunk_remaining_free: Spinlock::new(0, [mmap::MapAlloc::null(); 1024]),
         };
     }
 
@@ -68,6 +71,9 @@ impl BaseMemoryPool {
         return address;
     }
 }
+unsafe impl Send for BaseMemoryPool {}
+unsafe impl Sync for BaseMemoryPool {}
+
 impl Drop for BaseMemoryPool {
     fn drop(&mut self) {
         unsafe {
@@ -91,16 +97,26 @@ struct MemoryPool<'a> {
     free_queue: Queue<'a>,
 }
 
+const fn is_power_of_two_or_zero(value : usize)->bool{
+    //fails for 0 
+    return (value & (value-1)) == 0;
+}
+
 impl<'a> MemoryPool<'a> {
-    pub fn new(
+    pub const fn new(
         block_size: usize,
-        block_count: usize,
+        //block_count: usize,
         slice: &'a [AtomicUsize],
         capacity: usize,
     ) -> MemoryPool<'a> {
+        
+        // assert!(is_power_of_two_or_zero(block_size));
+        // assert!(is_power_of_two_or_zero(capacity));
+        // assert!(block_size != 0);
+        // assert!(capacity >= MAX_CHUNKS);
         return MemoryPool {
-            memory_pool: BaseMemoryPool::new(block_size, block_count),
-            free_queue: Queue::new(slice, capacity), //block_count * MemoryPool::MAX_CHUNKS
+            memory_pool: BaseMemoryPool::new(block_size, capacity>>MAX_CHUNKS_POT),
+            free_queue: Queue::new(slice, capacity),
         };
     }
 

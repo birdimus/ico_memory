@@ -1,7 +1,7 @@
 extern crate libc;
+use core::ptr;
 
-/// Not Copy or Clone so we don't lose track of allocations!
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C, align(16))]
 pub(crate) struct MapAlloc {
     pub(crate) memory: *mut u8,
@@ -9,6 +9,10 @@ pub(crate) struct MapAlloc {
 }
 
 impl MapAlloc {
+    #[inline(always)]
+    pub const fn null() -> MapAlloc {
+        return MapAlloc{memory: ptr::null_mut(), size:0};
+    }
     #[inline(always)]
     pub fn is_null(&self) -> bool {
         return self.size == 0;
