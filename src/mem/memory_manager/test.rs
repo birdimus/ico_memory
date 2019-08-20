@@ -29,6 +29,9 @@ mod test {
     static BUFFER_2048: [AtomicUsize; MAX_2048] =
         unsafe { Swap::<[usize; MAX_2048], [AtomicUsize; MAX_2048]>::get([0; MAX_2048]) };
 
+    // Note: as a comparison, one can mark this as the global allocator
+    // #[global_allocator]
+
     static MANAGER: MemoryManager = MemoryManager::new(
         &BUFFER_64,
         MAX_64,
@@ -48,31 +51,32 @@ mod test {
     #[test]
     fn custom_alloc() {
         let lock = LOCK.lock();
-        unsafe{MANAGER.clear();}
+        // unsafe{MANAGER.clear();}
         let now = Instant::now();
-        let mut cells : Vec<*mut u8> = Vec::with_capacity(2048);
-        for j in 0..256{
+        let alloc_count = 256;
+        let mut cells : Vec<*mut u8> = Vec::with_capacity(alloc_count);
+        for j in 0..2048{
             
             // letlayout = Layout::from_size_align(64,16).ok().unwrap();
-            for i in 0..2048{
+            for i in 0..alloc_count{
                 let layout = Layout::from_size_align(i,16).ok().unwrap();
                 let mut raw = unsafe{MANAGER.alloc(layout)};
 
                 // println!("raw map {} {} {}", raw as usize, i, j);
                 cells.push(raw);
-                let size = if layout.size() < 1 {1} else{layout.size()};
+                let size = 1;//if layout.size() < 1 {1} else{layout.size()};
                 unsafe{raw.write_bytes(i as u8, size );}
                 assert_eq!(unsafe{cells[i].read()}, i as u8);
             }
 
-            for i in 0..2048{
+            for i in 0..alloc_count{
 
                 assert_eq!(unsafe{cells[i].read()}, i as u8);
             }
 
             
-            for i in 0..2048{
-                let last_val = 2048 - i -1;
+            for i in 0..alloc_count{
+                let last_val = alloc_count - i -1;
 
                 let layout = Layout::from_size_align(last_val,16).ok().unwrap();
                 unsafe{MANAGER.dealloc(cells.pop().unwrap(), layout)};
@@ -80,34 +84,35 @@ mod test {
             // unsafe{MANAGER.clear();}
         }
         println!("custom alloc {} micros", now.elapsed().as_micros());
-        unsafe{MANAGER.clear();}
+        // unsafe{MANAGER.clear();}
     }
 
      #[test]
     fn default_alloc() {
         let lock = LOCK.lock();
         let now = Instant::now();
-        let mut cells : Vec<*mut u8> = Vec::with_capacity(2048);
-        for j in 0..256{
+        let alloc_count = 256;
+        let mut cells : Vec<*mut u8> = Vec::with_capacity(alloc_count);
+        for j in 0..2048{
             // let layout = Layout::from_size_align(64,16).ok().unwrap();
-            for i in 0..2048{
+            for i in 0..alloc_count{
                 let layout = Layout::from_size_align(i,16).ok().unwrap();
                 let mut raw = unsafe{alloc(layout)};
                  // println!("raw map {} {}", raw as usize, i);
                 cells.push(raw);
-                let size = if layout.size() < 1 {1} else{layout.size()};
+                let size = 1;//if layout.size() < 1 {1} else{layout.size()};
                 unsafe{raw.write_bytes(i as u8, size);}
                 assert_eq!(unsafe{cells[i].read()}, i as u8);
             }
 
-            for i in 0..2048{
+            for i in 0..alloc_count{
 
                 assert_eq!(unsafe{cells[i].read()}, i as u8);
             }
 
             
-            for i in 0..2048{
-                let last_val = 2048 - i -1;
+            for i in 0..alloc_count{
+                let last_val = alloc_count - i -1;
                 let layout = Layout::from_size_align(last_val,16).ok().unwrap();
                 unsafe{dealloc(cells.pop().unwrap(), layout)};
             }

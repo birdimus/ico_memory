@@ -38,16 +38,17 @@ impl<'a> MemoryManager<'a> {
     }
 }
 
-impl<'a>  MemoryManager<'a> {
-unsafe fn clear(&self){
-        self.pool_64.clear();
-        self.pool_128.clear();
-        self.pool_256.clear();
-        self.pool_512.clear();
-        self.pool_1024.clear();
-        self.pool_2048.clear();
-    }
-}
+// This function is a super duper bad idea
+// impl<'a>  MemoryManager<'a> {
+// unsafe fn clear(&self){
+//         self.pool_64.clear();
+//         self.pool_128.clear();
+//         self.pool_256.clear();
+//         self.pool_512.clear();
+//         self.pool_1024.clear();
+//         self.pool_2048.clear();
+//     }
+// }
 
 unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
 
@@ -185,5 +186,7 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
         }
     }
 }
+
+
 #[cfg(test)]
 mod test;
