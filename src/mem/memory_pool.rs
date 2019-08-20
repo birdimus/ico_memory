@@ -37,7 +37,7 @@ impl BaseMemoryPool {
         // Decompose the atomic value
         let mut remaining_blocks = active_chunk_data & BaseMemoryPool::BLOCK_MASK;
         let mut chunk_count = (active_chunk_data >> BaseMemoryPool::CHUNK_SHIFT);
-       
+
         if remaining_blocks == 0 {
             // Make sure we haven't run out of address space.
             if chunk_count >= (BaseMemoryPool::MAX_CHUNKS as u32) {
@@ -46,7 +46,7 @@ impl BaseMemoryPool {
                 // //handle_alloc_error
             }
             let page_aligned_size = mmap::get_page_aligned_size(self.block_count * self.block_size);
-             // println!("chunks  {} {} {}", chunk_count, remaining_blocks, page_aligned_size);
+            // println!("chunks  {} {} {}", chunk_count, remaining_blocks, page_aligned_size);
             let mem = mmap::alloc_page_aligned(page_aligned_size);
             // println!("mem  {}", mem.memory as usize);
             // Allocation failed.  This must abort.
@@ -65,7 +65,7 @@ impl BaseMemoryPool {
 
         let address = unsafe {
             (*active_chunk_lock)[(chunk_count - 1) as usize]
-                .get_unchecked( (new_remaining_blocks * self.block_size as u32) as isize)
+                .get_unchecked((new_remaining_blocks * self.block_size as u32) as isize)
         };
 
         active_chunk_lock
@@ -74,7 +74,7 @@ impl BaseMemoryPool {
         return address;
     }
 
-    fn clear(& self){
+    fn clear(&self) {
         unsafe {
             let mut active_chunk_lock = self.active_chunk_remaining_free.lock();
             let active_chunk_data = active_chunk_lock.read();
@@ -151,7 +151,7 @@ impl<'a> MemoryPool<'a> {
             .enqueue(NonZeroUsize::new(ptr as usize).unwrap());
     }
 
-    pub unsafe fn clear(& self) {
+    pub unsafe fn clear(&self) {
         self.free_queue.clear();
         self.memory_pool.clear();
     }

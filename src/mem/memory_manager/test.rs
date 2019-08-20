@@ -4,10 +4,10 @@ mod test {
     use crate::mem::memory_manager::MemoryManager;
     use crate::mem::queue::Swap;
     use crate::sync::index_lock::IndexSpinlock;
-    use core::sync::atomic::AtomicUsize;
-    use std::time::Instant;
     use core::alloc::{GlobalAlloc, Layout};
+    use core::sync::atomic::AtomicUsize;
     use std::alloc::{alloc, dealloc};
+    use std::time::Instant;
 
     const MAX_64: usize = 1024 * 2048;
     const MAX_128: usize = 1024 * 1024;
@@ -54,32 +54,31 @@ mod test {
         // unsafe{MANAGER.clear();}
         let now = Instant::now();
         let alloc_count = 256;
-        let mut cells : Vec<*mut u8> = Vec::with_capacity(alloc_count);
-        for j in 0..2048{
-            
+        let mut cells: Vec<*mut u8> = Vec::with_capacity(alloc_count);
+        for j in 0..2048 {
             // letlayout = Layout::from_size_align(64,16).ok().unwrap();
-            for i in 0..alloc_count{
-                let layout = Layout::from_size_align(i,16).ok().unwrap();
-                let mut raw = unsafe{MANAGER.alloc(layout)};
+            for i in 0..alloc_count {
+                let layout = Layout::from_size_align(i, 16).ok().unwrap();
+                let mut raw = unsafe { MANAGER.alloc(layout) };
 
                 // println!("raw map {} {} {}", raw as usize, i, j);
                 cells.push(raw);
-                let size = 1;//if layout.size() < 1 {1} else{layout.size()};
-                unsafe{raw.write_bytes(i as u8, size );}
-                assert_eq!(unsafe{cells[i].read()}, i as u8);
+                let size = 1; //if layout.size() < 1 {1} else{layout.size()};
+                unsafe {
+                    raw.write_bytes(i as u8, size);
+                }
+                assert_eq!(unsafe { cells[i].read() }, i as u8);
             }
 
-            for i in 0..alloc_count{
-
-                assert_eq!(unsafe{cells[i].read()}, i as u8);
+            for i in 0..alloc_count {
+                assert_eq!(unsafe { cells[i].read() }, i as u8);
             }
 
-            
-            for i in 0..alloc_count{
-                let last_val = alloc_count - i -1;
+            for i in 0..alloc_count {
+                let last_val = alloc_count - i - 1;
 
-                let layout = Layout::from_size_align(last_val,16).ok().unwrap();
-                unsafe{MANAGER.dealloc(cells.pop().unwrap(), layout)};
+                let layout = Layout::from_size_align(last_val, 16).ok().unwrap();
+                unsafe { MANAGER.dealloc(cells.pop().unwrap(), layout) };
             }
             // unsafe{MANAGER.clear();}
         }
@@ -87,37 +86,36 @@ mod test {
         // unsafe{MANAGER.clear();}
     }
 
-     #[test]
+    #[test]
     fn default_alloc() {
         let lock = LOCK.lock();
         let now = Instant::now();
         let alloc_count = 256;
-        let mut cells : Vec<*mut u8> = Vec::with_capacity(alloc_count);
-        for j in 0..2048{
+        let mut cells: Vec<*mut u8> = Vec::with_capacity(alloc_count);
+        for j in 0..2048 {
             // let layout = Layout::from_size_align(64,16).ok().unwrap();
-            for i in 0..alloc_count{
-                let layout = Layout::from_size_align(i,16).ok().unwrap();
-                let mut raw = unsafe{alloc(layout)};
-                 // println!("raw map {} {}", raw as usize, i);
+            for i in 0..alloc_count {
+                let layout = Layout::from_size_align(i, 16).ok().unwrap();
+                let mut raw = unsafe { alloc(layout) };
+                // println!("raw map {} {}", raw as usize, i);
                 cells.push(raw);
-                let size = 1;//if layout.size() < 1 {1} else{layout.size()};
-                unsafe{raw.write_bytes(i as u8, size);}
-                assert_eq!(unsafe{cells[i].read()}, i as u8);
+                let size = 1; //if layout.size() < 1 {1} else{layout.size()};
+                unsafe {
+                    raw.write_bytes(i as u8, size);
+                }
+                assert_eq!(unsafe { cells[i].read() }, i as u8);
             }
 
-            for i in 0..alloc_count{
-
-                assert_eq!(unsafe{cells[i].read()}, i as u8);
+            for i in 0..alloc_count {
+                assert_eq!(unsafe { cells[i].read() }, i as u8);
             }
 
-            
-            for i in 0..alloc_count{
-                let last_val = alloc_count - i -1;
-                let layout = Layout::from_size_align(last_val,16).ok().unwrap();
-                unsafe{dealloc(cells.pop().unwrap(), layout)};
+            for i in 0..alloc_count {
+                let last_val = alloc_count - i - 1;
+                let layout = Layout::from_size_align(last_val, 16).ok().unwrap();
+                unsafe { dealloc(cells.pop().unwrap(), layout) };
             }
         }
         println!("default alloc {} micros", now.elapsed().as_micros());
-
     }
 }
