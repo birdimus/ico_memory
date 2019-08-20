@@ -11,7 +11,10 @@ pub(crate) struct MapAlloc {
 impl MapAlloc {
     #[inline(always)]
     pub const fn null() -> MapAlloc {
-        return MapAlloc{memory: ptr::null_mut(), size:0};
+        return MapAlloc {
+            memory: ptr::null_mut(),
+            size: 0,
+        };
     }
     #[inline(always)]
     pub fn is_null(&self) -> bool {
@@ -48,8 +51,8 @@ pub(crate) unsafe fn free_page_aligned(ptr: *mut u8, size: usize) {
 }
 
 #[inline(always)]
-pub(crate) fn alloc_page_aligned(size: usize) -> MapAlloc {
-    let alloc_size = get_page_aligned_size(size);
+pub(crate) fn alloc_page_aligned(alloc_size: usize) -> MapAlloc {
+    // let alloc_size = get_page_aligned_size(size);
     unsafe {
         let p: *mut libc::c_void = libc::mmap(
             core::ptr::null_mut(),
