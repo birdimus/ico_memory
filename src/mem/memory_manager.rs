@@ -138,6 +138,7 @@ impl<'a>  MemoryManager<'a> {
 }
 
 unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
+     #[inline(always)]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // All allocations are aligned at their size boundary - so we just need the greater of the two.
 
@@ -152,6 +153,21 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
         return self.alloc_pot(allocation_size, pot_greater);
     }
 
+    ///  SSE zero using __m128.  Beats rust and naive for loop.
+    #[inline(always)]
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8{
+        let mut new = self.alloc(layout);
+        let mut dst = new as *mut __m128i;
+        let mut s = layout.size() as isize;
+        while s > 0{
+            _mm_store_si128(dst, _mm_setzero_si128());
+            dst = dst.offset(1);
+            s = s-16;
+        }
+        return new;
+    }
+
+     #[inline(always)]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         let allocation_size = if layout.size() >= layout.align() {
             layout.size()
@@ -162,7 +178,7 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
         let pot_greater: u32 = (allocation_size as u32 - 1).leading_zeros() + 1;
         self.free_pot(ptr, allocation_size, pot_greater);
     }
-
+     #[inline(always)]
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         let old_alloc_size = if layout.size() >= layout.align() {
             layout.size()
@@ -183,20 +199,33 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
             return ptr;
         }
 
-
-        // Take the minimum size divided by 32
-        let old_size = (((layout.size() - 1)>>5)+1) as isize;
-        let new_size = (((new_size - 1)>>5)+1)  as isize;
-
-        let copy_size_32 = (if old_size < new_size {old_size} else{new_size});
-
         let mut new = self.alloc_pot(new_alloc_size, pot_new);
 
-        // AVX memcpy.  We know the memory is aligned to 64 bytes!
-        let src = ptr as *const __m256i;
-        let dst = new as *mut __m256i;
-        for i in 0..copy_size_32{
-            _mm256_store_si256(dst, _mm256_load_si256(src.offset(i)));
+        { //Copy from old to new
+            let mut src = ptr as *const __m128i;
+            let mut dst = new as *mut __m128i;
+            let mut copy_size = if layout.size() < new_size {layout.size() as isize} else{new_size as isize};
+            while copy_size > 0{
+                _mm_store_si128(dst, _mm_load_si128(src));
+                src = src.offset(1);
+                dst = dst.offset(1);
+                copy_size = copy_size-16;
+            }
+            // Take the minimum size divided by 32, rounded up (it's safe)
+            // Here 
+            // let old_size = (((layout.size() - 1)>>5)+1) as isize;
+            // let new_size = (((new_size - 1)>>5)+1)  as isize;
+
+            // let copy_size_32 = (if old_size < new_size {old_size} else{new_size});
+
+            
+            // AVX memcpy.  We know the memory is aligned to 64 bytes!
+            // Still - this is going for 32 bytes to not require AVX512
+            // let src = ptr as *const __m256i;
+            // let dst = new as *mut __m256i;
+            // for i in 0..copy_size_32{
+            //     _mm256_store_si256(dst, _mm256_load_si256(src.offset(i)));
+            // }
         }
         
         self.free_pot(ptr, old_alloc_size, pot_old);

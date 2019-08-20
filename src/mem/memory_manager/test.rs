@@ -6,7 +6,7 @@ mod test {
     use crate::sync::index_lock::IndexSpinlock;
     use core::alloc::{GlobalAlloc, Layout};
     use core::sync::atomic::AtomicUsize;
-    use std::alloc::{alloc, dealloc};
+    use std::alloc::{alloc, dealloc, alloc_zeroed};
     use std::time::Instant;
 
     const MAX_64: usize = 1024 * 2048;
@@ -58,8 +58,8 @@ mod test {
         for j in 0..2048 {
             // letlayout = Layout::from_size_align(64,16).ok().unwrap();
             for i in 0..alloc_count {
-                let layout = Layout::from_size_align(i, 16).ok().unwrap();
-                let mut raw = unsafe { MANAGER.alloc(layout) };
+                let layout = Layout::from_size_align(i+1, 16).ok().unwrap();
+                let mut raw = unsafe { MANAGER.alloc_zeroed(layout) };
 
                 // println!("raw map {} {} {}", raw as usize, i, j);
                 cells.push(raw);
@@ -77,7 +77,7 @@ mod test {
             for i in 0..alloc_count {
                 let last_val = alloc_count - i - 1;
 
-                let layout = Layout::from_size_align(last_val, 16).ok().unwrap();
+                let layout = Layout::from_size_align(last_val +1, 16).ok().unwrap();
                 unsafe { MANAGER.dealloc(cells.pop().unwrap(), layout) };
             }
             // unsafe{MANAGER.clear();}
@@ -95,8 +95,8 @@ mod test {
         for j in 0..2048 {
             // let layout = Layout::from_size_align(64,16).ok().unwrap();
             for i in 0..alloc_count {
-                let layout = Layout::from_size_align(i, 16).ok().unwrap();
-                let mut raw = unsafe { alloc(layout) };
+                let layout = Layout::from_size_align(i+1, 16).ok().unwrap();
+                let mut raw = unsafe { alloc_zeroed(layout) };
                 // println!("raw map {} {}", raw as usize, i);
                 cells.push(raw);
                 let size = 1; //if layout.size() < 1 {1} else{layout.size()};
@@ -112,7 +112,7 @@ mod test {
 
             for i in 0..alloc_count {
                 let last_val = alloc_count - i - 1;
-                let layout = Layout::from_size_align(last_val, 16).ok().unwrap();
+                let layout = Layout::from_size_align(last_val+1, 16).ok().unwrap();
                 unsafe { dealloc(cells.pop().unwrap(), layout) };
             }
         }
