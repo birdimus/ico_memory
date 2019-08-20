@@ -156,7 +156,19 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
     ///  SSE zero using __m128.  Beats rust and naive for loop.
     #[inline(always)]
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8{
-        let mut new = self.alloc(layout);
+        // MMAP will return zeroed
+        let allocation_size = if layout.size() >= layout.align() {
+            layout.size()
+        } else {
+            layout.align()
+        };
+
+        let pot_greater: u32 = (allocation_size as u32 - 1).leading_zeros() + 1;
+        // MMAP will always return zeroed memory - so let's not re-zero it.
+        if(pot_greater > 22){return self.alloc_pot(allocation_size, pot_greater);}
+
+
+        let mut new = self.alloc_pot(allocation_size, pot_greater);
         let mut dst = new as *mut __m128i;
         let mut s = layout.size() as isize;
         while s > 0{
@@ -211,21 +223,6 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
                 dst = dst.offset(1);
                 copy_size = copy_size-16;
             }
-            // Take the minimum size divided by 32, rounded up (it's safe)
-            // Here 
-            // let old_size = (((layout.size() - 1)>>5)+1) as isize;
-            // let new_size = (((new_size - 1)>>5)+1)  as isize;
-
-            // let copy_size_32 = (if old_size < new_size {old_size} else{new_size});
-
-            
-            // AVX memcpy.  We know the memory is aligned to 64 bytes!
-            // Still - this is going for 32 bytes to not require AVX512
-            // let src = ptr as *const __m256i;
-            // let dst = new as *mut __m256i;
-            // for i in 0..copy_size_32{
-            //     _mm256_store_si256(dst, _mm256_load_si256(src.offset(i)));
-            // }
         }
         
         self.free_pot(ptr, old_alloc_size, pot_old);
