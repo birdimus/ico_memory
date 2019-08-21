@@ -139,7 +139,47 @@ mod test {
                 // println!("raw map {} {} {}", raw as usize, i, j);
                 assert_ne!(raw, core::ptr::null_mut());
                 // let size = 1; //if layout.size() < 1 {1} else{layout.size()};
-                //TODO: check the copy.
+                //Validate the copy.
+                
+                unsafe {
+                    // println!("write {}",i+1);
+                    raw.write_bytes((i+1) as u8, 1);
+                }
+                // assert_eq!(unsafe { cells[i].read() }, i as u8);
+            }
+            unsafe { MANAGER.dealloc(raw, layout) };
+            
+            // unsafe{MANAGER.clear();}
+        }
+        println!("custom realloc {} micros", now.elapsed().as_micros());
+        // unsafe{MANAGER.clear();}
+    }
+    #[test]
+    fn custom_realloc_copy() {
+        let lock = LOCK.lock();
+        // unsafe{MANAGER.clear();}
+        // let now = Instant::now();
+        let alloc_count = 256;
+        // let mut cells: Vec<*mut u8> = Vec::with_capacity(alloc_count);
+        for j in 0..2048 {
+            let mut layout = Layout::from_size_align(1, 16).ok().unwrap();
+            let mut raw = unsafe { MANAGER.alloc_zeroed(layout) };
+            unsafe {
+            raw.write_bytes(0 as u8, 1);
+            }
+            for i in 0..alloc_count {
+                
+                raw = unsafe { MANAGER.realloc(raw, layout, i+1) };
+                layout = Layout::from_size_align(i+1, 16).ok().unwrap();
+                // println!("raw map {} {} {}", raw as usize, i, j);
+                assert_ne!(raw, core::ptr::null_mut());
+                // let size = 1; //if layout.size() < 1 {1} else{layout.size()};
+                //Validate the copy.
+                for k in 0..i{
+                    unsafe{
+                    assert_eq!(raw.offset(k as isize).read(), (i) as u8);
+                    }
+                }
                 unsafe {
                     // println!("write {}",i+1);
                     raw.write_bytes((i+1) as u8, i+1);
@@ -150,7 +190,7 @@ mod test {
             
             // unsafe{MANAGER.clear();}
         }
-        println!("custom realloc {} micros", now.elapsed().as_micros());
+        // println!("custom realloc {} micros", now.elapsed().as_micros());
         // unsafe{MANAGER.clear();}
     }
 
