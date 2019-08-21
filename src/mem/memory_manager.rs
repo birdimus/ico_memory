@@ -1,9 +1,9 @@
 use crate::mem::memory_pool::MemoryPool;
 use crate::mem::mmap;
 use core::alloc::{GlobalAlloc, Layout};
+use core::arch::x86_64::*;
 use core::ptr::null_mut;
 use core::sync::atomic::AtomicUsize;
-use core::arch::x86_64::*;
 
 struct MemoryManager<'a> {
     pool_64: MemoryPool<'a>,
@@ -41,17 +41,17 @@ impl<'a> MemoryManager<'a> {
 }
 
 // This function is a super duper bad idea
-impl<'a>  MemoryManager<'a> {
-// unsafe fn clear(&self){
-//         self.pool_64.clear();
-//         self.pool_128.clear();
-//         self.pool_256.clear();
-//         self.pool_512.clear();
-//         self.pool_1024.clear();
-//         self.pool_2048.clear();
-//     }
+impl<'a> MemoryManager<'a> {
+    // unsafe fn clear(&self){
+    //         self.pool_64.clear();
+    //         self.pool_128.clear();
+    //         self.pool_256.clear();
+    //         self.pool_512.clear();
+    //         self.pool_1024.clear();
+    //         self.pool_2048.clear();
+    //     }
     #[inline(always)]
-    unsafe fn free_pot(&self, ptr : *mut u8, allocation_size: usize, pot_greater : u32) {
+    unsafe fn free_pot(&self, ptr: *mut u8, allocation_size: usize, pot_greater: u32) {
         match pot_greater {
             32 => {
                 return self.pool_64.deallocate(ptr);
@@ -94,7 +94,7 @@ impl<'a>  MemoryManager<'a> {
     }
 
     #[inline(always)]
-    unsafe fn alloc_pot(&self, allocation_size: usize, pot_greater : u32) -> *mut u8 {
+    unsafe fn alloc_pot(&self, allocation_size: usize, pot_greater: u32) -> *mut u8 {
         match pot_greater {
             32 => {
                 return self.pool_64.allocate();
@@ -138,7 +138,7 @@ impl<'a>  MemoryManager<'a> {
 }
 
 unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
-     #[inline(always)]
+    #[inline(always)]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // All allocations are aligned at their size boundary - so we just need the greater of the two.
 
@@ -155,7 +155,7 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
 
     ///  SSE zero using __m128.  Beats rust and naive for loop.
     #[inline(always)]
-    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8{
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         // MMAP will return zeroed
         let allocation_size = if layout.size() >= layout.align() {
             layout.size()
@@ -165,21 +165,22 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
 
         let pot_greater: u32 = (allocation_size as u32 - 1).leading_zeros() + 1;
         // MMAP will always return zeroed memory - so let's not re-zero it.
-        if(pot_greater > 22){return self.alloc_pot(allocation_size, pot_greater);}
-
+        if (pot_greater > 22) {
+            return self.alloc_pot(allocation_size, pot_greater);
+        }
 
         let mut new = self.alloc_pot(allocation_size, pot_greater);
         let mut dst = new as *mut __m128i;
         let mut s = layout.size() as isize;
-        while s > 0{
+        while s > 0 {
             _mm_store_si128(dst, _mm_setzero_si128());
             dst = dst.offset(1);
-            s = s-16;
+            s = s - 16;
         }
         return new;
     }
 
-     #[inline(always)]
+    #[inline(always)]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         let allocation_size = if layout.size() >= layout.align() {
             layout.size()
@@ -190,9 +191,8 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
         let pot_greater: u32 = (allocation_size as u32 - 1).leading_zeros() + 1;
         self.free_pot(ptr, allocation_size, pot_greater);
     }
-     #[inline(always)]
+    #[inline(always)]
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-
         // println!("ptr {}",ptr as usize);
         let old_alloc_size = if layout.size() >= layout.align() {
             layout.size()
@@ -216,20 +216,24 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
 
         let mut new = self.alloc_pot(new_alloc_size, pot_new);
 
-        { //Copy from old to new
+        {
+            //Copy from old to new
             let mut src = ptr as *const __m128i;
             let mut dst = new as *mut __m128i;
-            let mut copy_size = if layout.size() < new_size {layout.size() as isize} else{new_size as isize};
-            while copy_size > 0{
+            let mut copy_size = if layout.size() < new_size {
+                layout.size() as isize
+            } else {
+                new_size as isize
+            };
+            while copy_size > 0 {
                 _mm_store_si128(dst, _mm_load_si128(src));
                 src = src.offset(1);
                 dst = dst.offset(1);
-                copy_size = copy_size-16;
+                copy_size = copy_size - 16;
             }
         }
         // println!("ptr2 {}",ptr as usize);
         self.free_pot(ptr, old_alloc_size, pot_old);
-
 
         return new;
     }
