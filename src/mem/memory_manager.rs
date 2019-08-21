@@ -210,9 +210,9 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
         let pot_new: u32 = (new_alloc_size as u32 - 1).leading_zeros() + 1;
         // println!("pot realloc {} {} {} {}", old_alloc_size, new_alloc_size, pot_old, pot_new);
         // If the result is the same allocation size, return the old pointer.
-        // if pot_old == pot_new || (pot_old > 26 && pot_new > 26) {
-        //     return ptr;
-        // }
+        if pot_old == pot_new || (pot_old > 26 && pot_new > 26) {
+            return ptr;
+        }
 
         let mut new = self.alloc_pot(new_alloc_size, pot_new);
 
