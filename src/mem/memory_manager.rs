@@ -192,6 +192,8 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
     }
      #[inline(always)]
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+
+        // println!("ptr {}",ptr as usize);
         let old_alloc_size = if layout.size() >= layout.align() {
             layout.size()
         } else {
@@ -206,10 +208,11 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
 
         let pot_old: u32 = (old_alloc_size as u32 - 1).leading_zeros() + 1;
         let pot_new: u32 = (new_alloc_size as u32 - 1).leading_zeros() + 1;
+        // println!("pot realloc {} {} {} {}", old_alloc_size, new_alloc_size, pot_old, pot_new);
         // If the result is the same allocation size, return the old pointer.
-        if pot_old == pot_new || (pot_old < 26 && pot_new < 26) {
-            return ptr;
-        }
+        // if pot_old == pot_new || (pot_old > 26 && pot_new > 26) {
+        //     return ptr;
+        // }
 
         let mut new = self.alloc_pot(new_alloc_size, pot_new);
 
@@ -224,7 +227,7 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
                 copy_size = copy_size-16;
             }
         }
-        
+        // println!("ptr2 {}",ptr as usize);
         self.free_pot(ptr, old_alloc_size, pot_old);
 
 
