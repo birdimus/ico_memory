@@ -112,58 +112,85 @@ impl<K: Ord, V> AVLNode<K, V>{
 		return node;
 	}
 
-	// pub fn next(&self) ->Option<& AVLNode<K, V> >{
-	// 	if self.right.is_some(){
-	// 		return Some(self.right.as_ref().unwrap().min_child());
-	// 	}
+	fn successor(&self) ->Option<& AVLNode<K, V> >{
+		if !self.right.is_null(){
+			unsafe{
+				return Some(self.right.as_ref().unwrap().min_child());
+			}
+		}
 
-	// 	let mut node = self;
-	// 	let mut p = unsafe{node.parent.as_ref()};
-	// 	while p.is_some() {
-	// 		let parent = p.unwrap();
-	// 		if ptr::eq(node,parent.left.as_ref().unwrap().as_ref()){
-	// 			return Some(parent);		
-	// 		}
-	// 		node = parent;
-	// 		p = unsafe{node.parent.as_ref()};
-	// 	}
-	// 	return p;
-	// }
+		let mut node = self;
+		let mut p = unsafe{node.parent.as_ref()};
+		while p.is_some() {
+			let parent = p.unwrap();
+			if ptr::eq(node,parent.left){
+				return Some(parent);		
+			}
+			node = parent;
+			p = unsafe{node.parent.as_ref()};
+		}
+		return p;
+	}
+
+	pub fn predecessor(&self)->Option<& AVLNode<K, V> >{
+		if !self.left.is_null(){
+			unsafe{
+				return Some(self.left.as_ref().unwrap().max_child());
+			}
+		}
+
+		let mut node = self;
+		let mut p = unsafe{node.parent.as_ref()};
+		while p.is_some() {
+			let parent = p.unwrap();
+			if ptr::eq(node,parent.right){
+				return Some(parent);		
+			}
+			node = parent;
+			p = unsafe{node.parent.as_ref()};
+		}
+		return p;
+	}
+	fn successor_mut(&mut self) ->Option<&mut AVLNode<K, V> >{
+		if !self.right.is_null(){
+			unsafe{
+				return Some(self.right.as_mut().unwrap().min_child_mut());
+			}
+		}
+
+		let mut node = self;
+		let mut p = unsafe{node.parent.as_mut()};
+		while p.is_some() {
+			let parent = p.unwrap();
+			if ptr::eq(node,parent.left){
+				return Some(parent);		
+			}
+			node = parent;
+			p = unsafe{node.parent.as_mut()};
+		}
+		return p;
+	}
+
+	pub fn predecessor_mut(&mut self)->Option<&mut AVLNode<K, V> >{
+		if !self.left.is_null(){
+			unsafe{
+				return Some(self.left.as_mut().unwrap().max_child_mut());
+			}
+		}
+
+		let mut node = self;
+		let mut p = unsafe{node.parent.as_mut()};
+		while p.is_some() {
+			let parent = p.unwrap();
+			if ptr::eq(node,parent.right){
+				return Some(parent);		
+			}
+			node = parent;
+			p = unsafe{node.parent.as_mut()};
+		}
+		return p;
+	}
 	
-	// pub fn next_mut(&mut self) ->Option<&mut AVLNode<K, V> >{
-	// 	if self.right.is_some(){
-	// 		return Some(self.right.as_mut().unwrap().min_child_mut());
-	// 	}
-
-	// 	let mut node = self;
-	// 	let mut p = unsafe{node.parent.as_mut()};
-	// 	while p.is_some() {
-	// 		let parent = p.unwrap();
-	// 		if ptr::eq(node,parent.left.as_mut().unwrap().as_mut()){
-	// 			return Some(parent);		
-	// 		}
-	// 		node = parent;
-	// 		p = unsafe{node.parent.as_mut()};
-	// 	}
-	// 	return p;
-	// }
-	// pub fn previous(&self)->Option<& AVLNode<K, V> >{
-	// 	if self.left.is_some(){
-	// 		return Some(self.left.as_ref().unwrap().max_child());
-	// 	}
-
-	// 	let mut node = self;
-	// 	let mut p = unsafe{node.parent.as_ref()};
-	// 	while p.is_some() {
-	// 		let parent = p.unwrap();
-	// 		if ptr::eq(node,parent.right.as_ref().unwrap().as_ref()){
-	// 			return Some(parent);		
-	// 		}
-	// 		node = parent;
-	// 		p = unsafe{node.parent.as_ref()};
-	// 	}
-	// 	return p;
-	// }
 	// pub fn previous_mut(&mut self)->Option<&mut AVLNode<K, V> >{
 	// 	return None;
 	// }
@@ -196,14 +223,35 @@ impl<K: Ord, V> AVLTree<K, V>{
 		}
 	}
 
-	pub fn first(){
+	// pub fn first(){
 
-	}
-	pub fn last(){
+	// }
+	// pub fn last(){
 
-	}
+	// }
 	pub fn count(&self) ->u32{
 		return self.count;
+	}
+
+	fn transplant(&mut self, from : &mut AVLNode<K, V>, to : *mut AVLNode<K, V>){
+
+		if(from.parent.is_null()){
+			self.root = to;
+		}
+		else{
+			let parent_node = unsafe{from.parent.as_mut().unwrap()};
+			if(from as *mut AVLNode<K, V> == parent_node.left ){
+				parent_node.left = to;
+			}
+			else{
+				parent_node.right = to;
+			}
+		}
+		let to_node = unsafe{to.as_mut()};
+		if(to_node.is_some()){
+			to_node.unwrap().parent = from.parent;
+		}
+		
 	}
 
 	fn rotate_right(&mut self, base : &mut AVLNode<K, V>, left : &mut AVLNode<K, V>){
@@ -306,7 +354,65 @@ impl<K: Ord, V> AVLTree<K, V>{
 			}
 		}
 	}
-	
+
+	fn remove(&mut self, node : &mut AVLNode<K, V>){
+		let mut parent = ptr::null_mut();
+		if(node.left.is_null()){
+
+			//since this node has no left children, it could be the min node.
+			if self.first == node {
+				match node.successor_mut(){
+					Some(next)=>self.first =next,
+					None=> self.first = ptr::null_mut(),
+				}
+				
+			}
+			parent = node.parent;
+			self.transplant(node, node.right);
+			//return parent;
+		}
+		else if(node.right.is_null()){
+			if self.last == node {
+				match node.predecessor_mut(){
+					Some(prev)=>self.last = prev,
+					None=> self.last = ptr::null_mut(),
+				}
+				
+			}
+
+			parent = node.parent;
+			self.transplant(node, node.left);
+			//return parent;
+		}
+		else{
+			let right_node = unsafe{node.right.as_mut().unwrap()};
+			let successor = right_node.min_child_mut(); //the leftmost node
+			if(!successor.right.is_null()){
+				let s_right = unsafe{successor.right.as_mut().unwrap()};
+				self.transplant(successor, s_right);
+			}
+			self.transplant(node, successor);
+			successor.left = node.left;
+			let left_node = unsafe{node.left.as_mut().unwrap()};
+			left_node.parent = successor;
+			// this is overly conservative when the successor is deep (one extra rebalance node)
+			// but catches the case when the 
+			// successor is the right child of the original node.
+			// the branchlessness is probably worth the cost of the additional additions.
+			parent = successor;
+		}
+
+		//now rebalance from the parent node.
+		if !parent.is_null(){
+			self.rebalance(unsafe{node.right.as_mut().unwrap()})
+		}
+		
+		unsafe{
+			let layout = core::alloc::Layout::from_size_align_unchecked(core::mem::size_of::<AVLNode<K, V>>(), core::mem::align_of::<AVLNode<K, V>>());
+			alloc::alloc::dealloc(node as *mut AVLNode<K, V> as *mut u8, layout);
+		}
+	}
+
 	pub fn insert(&mut self, key : K, value : V) ->bool{
 		
 		if self.root.is_null(){
@@ -434,6 +540,17 @@ impl<K: Ord, V> AVLTree<K, V>{
 
     	return self.entry_mut(search_key).map(|node| node.value_mut());
 	}
+
+
+
+	// pub fn remove<Q>(&mut self, search_key : &Q) -> Option<V>
+	// 	where
+	//     K: Borrow<Q>,
+	//     Q: Ord + ?Sized{
+
+
+
+	// }
 	// pub fn iter(&self) -> Iter<'_, K,V> {
  //        Iter { next: self.root.as_ref().map(|node| &**node) }
  //    }
