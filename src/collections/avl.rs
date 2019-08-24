@@ -355,7 +355,7 @@ impl<K: Ord, V> AVLTree<K, V>{
 		}
 	}
 
-	fn remove(&mut self, node : &mut AVLNode<K, V>){
+	fn remove_node(&mut self, node : &mut AVLNode<K, V>){
 		let mut parent = ptr::null_mut();
 		if(node.left.is_null()){
 
@@ -406,7 +406,7 @@ impl<K: Ord, V> AVLTree<K, V>{
 		if !parent.is_null(){
 			self.rebalance(unsafe{node.right.as_mut().unwrap()})
 		}
-		
+		// let entry = node.entry
 		unsafe{
 			let layout = core::alloc::Layout::from_size_align_unchecked(core::mem::size_of::<AVLNode<K, V>>(), core::mem::align_of::<AVLNode<K, V>>());
 			alloc::alloc::dealloc(node as *mut AVLNode<K, V> as *mut u8, layout);
@@ -548,7 +548,23 @@ impl<K: Ord, V> AVLTree<K, V>{
 	//     K: Borrow<Q>,
 	//     Q: Ord + ?Sized{
 
+	//     let mut target = self.root;
+ //    	while let Some(node) = unsafe{target.as_mut()}{
+ //    		let ord = search_key.cmp(node.entry.key.borrow());
+ //    		match ord{
+ //    			Ordering::Less=>{target = node.left;},
+ //    			Ordering::Greater=>{target = node.right;},
+ //    			Ordering::Equal=>{
 
+ //    				let result = node.entry.value;
+ //    				self.remove_node(node);
+ //    				return Some(result);
+
+ //    			},
+ //    		}
+    		
+ //    	}
+ //    	return None;
 
 	// }
 	// pub fn iter(&self) -> Iter<'_, K,V> {
