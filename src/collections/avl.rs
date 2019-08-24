@@ -13,6 +13,7 @@ use core::cmp::Ordering;
 use core::ptr;
 use core::borrow::Borrow;
 use core::iter::Iterator;
+use core::iter::FusedIterator;
 extern crate alloc;
 
 pub struct Entry<K: Ord, V>{
@@ -229,7 +230,7 @@ impl<K: Ord, V> AVLTree<K, V>{
 	// pub fn last(){
 
 	// }
-	pub fn count(&self) ->u32{
+	pub fn len(&self) ->u32{
 		return self.count;
 	}
 
@@ -566,21 +567,96 @@ impl<K: Ord, V> AVLTree<K, V>{
     	return None;
 
 	}
-	// pub fn iter(&self) -> Iter<'_, K,V> {
- //        Iter { next: self.root.as_ref().map(|node| &**node) }
- //    }
 
+
+	pub fn iter<'a>(&'a self) -> Iter<'a, K,V> {
+		unsafe{
+        return Iter { 
+        	head: self.first.as_ref(),
+        	tail: self.last.as_ref(),
+        	count: self.len(),
+        };
+   	 	}
+    }
+
+    /// Clear the binary tree by re-using parent pointers as a stack
+    pub fn clear(&mut self){
+    	let mut stack : *mut AVLNode<K, V> = self.root;
+    	while !stack.is_null(){
+    		//pop the first element off the stack.
+    		let tmp = stack;
+    		let pop_node = unsafe{tmp.as_mut().unwrap()};
+    		stack = pop_node.parent;
+
+    		if !pop_node.left.is_null(){
+    			let left_node = unsafe{pop_node.left.as_mut().unwrap()};
+    			left_node.parent = stack;
+    			stack = pop_node.left;
+    		}
+
+    		if !pop_node.right.is_null(){
+    			let right_node = unsafe{pop_node.right.as_mut().unwrap()};
+    			right_node.parent = stack;
+    			stack = pop_node.right;
+    		}
+
+    		let drop_box : Box<AVLNode<K, V>> = unsafe{Box::from_raw(tmp)};
+    	}
+    	self.count = 0;
+    	self.root = ptr::null_mut();
+    	self.first = ptr::null_mut();
+    	self.last = ptr::null_mut();
+    }
  //    pub fn iter_mut(&mut self) -> IterMut<'_, K, V> {
  //        IterMut { next: self.root.as_mut().map(|node| &mut **node) }
  //    }
 
 }
 
-// pub struct IntoIter<T>(List<T>);
-// pub struct Iter<'a, K: Ord, V> {
-//     next: Option<&'a AVLNode<K, V> >,
-// }
+impl <K: Ord, V> Drop for AVLTree<K, V>{
+	fn drop(&mut self) {
+		self.clear();
+	}
+}
 
+// pub struct IntoIter<T>(List<T>);
+pub struct Iter<'a, K: Ord, V> {
+    head: Option<&'a AVLNode<K, V> >,
+    tail: Option<&'a AVLNode<K, V> >,
+    count : u32,
+}
+impl<'a, K: Ord, V> Iterator for Iter<'a, K, V> {
+	type Item = &'a Entry<K,V>;
+	fn next(&mut self) -> Option<&'a Entry<K,V>> {
+		if self.count == 0 {return None};
+		let node = self.head.unwrap();
+		let result = &node.entry;
+		self.head = node.successor();
+		self.count -=1;
+		return Some(result);
+    }
+    fn size_hint(&self) -> (usize, Option<usize>){
+    	return (self.count as usize, Some(self.count as usize));
+    }
+}
+impl<'a, K: Ord, V> FusedIterator for Iter<'a, K, V>{}
+impl<'a, K: Ord, V> ExactSizeIterator for Iter<'a, K, V>{
+    fn len(&self) -> usize{
+    	return self.count as usize;
+    }
+}
+
+impl<'a, K: Ord, V> DoubleEndedIterator for Iter<'a, K, V>{
+
+	fn next_back(&mut self) -> Option<&'a Entry<K,V>> {
+		if self.count == 0 {return None};
+		let node = self.tail.unwrap();
+		let result = &node.entry;
+		self.tail = node.predecessor();
+		self.count -=1;
+		return Some(result);
+    }
+}
 // pub struct IterMut<'a, K: Ord, V> {
 //     next: Option<&'a mut AVLNode<K, V> >,
 // }

@@ -14,14 +14,14 @@ mod test {
     fn insert() {
     	let mut tree = avl::AVLTree::<u8,i32>::new();
     	for i in 0..=255{
-    		assert_eq!(tree.count(), i);
+    		assert_eq!(tree.len(), i);
     		assert_eq!(true, tree.insert(i as u8, -(i as i32)));
-    		assert_eq!(tree.count(), i+1);
+    		assert_eq!(tree.len(), i+1);
     	}
     	for i in 0..=255{
 
     		assert_eq!(false, tree.insert(i as u8, -(i as i32)), "{ }", i);
-    		assert_eq!(tree.count(), 256);
+    		assert_eq!(tree.len(), 256);
     	}
 
     	for i in 0..=255{
@@ -42,9 +42,9 @@ mod test {
     fn remove() {
     	let mut tree = avl::AVLTree::<u8,i32>::new();
     	for i in 0..=255{
-    		assert_eq!(tree.count(), i);
+    		assert_eq!(tree.len(), i);
     		assert_eq!(true, tree.insert(i as u8, -(i as i32)));
-    		assert_eq!(tree.count(), i+1);
+    		assert_eq!(tree.len(), i+1);
     	}
 
     	for i in 0..=255{
@@ -70,12 +70,28 @@ mod test {
     		assert_eq!(-(i as i32), v.unwrap());
 
     		// Check the count.
-    		assert_eq!(tree.count(), 255 - i as u32);
+    		assert_eq!(tree.len(), 255 - i as u32);
 
     	}
 
     }
+    #[test]
+    fn iterator() {
+    	let mut tree = avl::AVLTree::<u8,i32>::new();
+    	for i in 0..=255{
+    		assert_eq!(tree.len(), i);
+    		assert_eq!(true, tree.insert(i as u8, -(i as i32)));
+    		assert_eq!(tree.len(), i+1);
+    	}
 
+    	let mut iter = tree.iter();
+    	let mut blah = iter.next();
+    	while blah.is_some(){
+    		
+    		blah = iter.next();
+    	}
+
+    }
 
 
 }
