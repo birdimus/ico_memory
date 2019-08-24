@@ -47,11 +47,32 @@ mod test {
     		assert_eq!(tree.count(), i+1);
     	}
 
-    	// for i in 0..=255{
-    	// 	// assert_eq!(tree.count(), i);
-    	// 	assert_eq!(-(i as i32), tree.remove(&(i as u8)).unwrap());
-    	// 	// assert_eq!(tree.count(), i+1);
-    	// }
+    	for i in 0..=255{
+
+    		//Check validity as we remove things
+    		for j in i..=255{
+	    		let tmp = tree.entry(&j).unwrap();
+	    		assert_eq!(*tmp.value(), -(j as i32));
+	    		assert_eq!(true, tmp.balance() > -2 && tmp.balance() < 2);
+
+	    		assert_eq!(*tree.get(&j).unwrap(), -(j as i32));
+	    	}
+
+
+
+    		let v = tree.remove(&(i as u8));
+
+    		//Make sure it's gone.
+    		assert_eq!(tree.get(&(i as u8)), None);
+
+    		// Make sure it returned something, and the something is the right thing.
+    		assert_eq!(v.is_some(), true);
+    		assert_eq!(-(i as i32), v.unwrap());
+
+    		// Check the count.
+    		assert_eq!(tree.count(), 255 - i as u32);
+
+    	}
 
     }
 

@@ -355,7 +355,7 @@ impl<K: Ord, V> AVLTree<K, V>{
 		}
 	}
 
-	fn remove_node(&mut self, node : &mut AVLNode<K, V>){
+	fn remove_node(&mut self, node : &mut AVLNode<K, V>) -> Entry<K,V>{
 		let mut parent = ptr::null_mut();
 		if(node.left.is_null()){
 
@@ -404,13 +404,13 @@ impl<K: Ord, V> AVLTree<K, V>{
 
 		//now rebalance from the parent node.
 		if !parent.is_null(){
-			self.rebalance(unsafe{node.right.as_mut().unwrap()})
+			self.rebalance(unsafe{parent.as_mut().unwrap()})
 		}
-		// let entry = node.entry
-		unsafe{
-			let layout = core::alloc::Layout::from_size_align_unchecked(core::mem::size_of::<AVLNode<K, V>>(), core::mem::align_of::<AVLNode<K, V>>());
-			alloc::alloc::dealloc(node as *mut AVLNode<K, V> as *mut u8, layout);
-		}
+		
+		self.count -=1;
+		// This box immediately goes out of scope - but we move the contents out, deferring any drop.
+		let drop_box : Box<AVLNode<K, V>> = unsafe{Box::from_raw(node as *mut AVLNode<K, V>)};
+		return drop_box.entry;
 	}
 
 	pub fn insert(&mut self, key : K, value : V) ->bool{
@@ -543,30 +543,29 @@ impl<K: Ord, V> AVLTree<K, V>{
 
 
 
-	// pub fn remove<Q>(&mut self, search_key : &Q) -> Option<V>
-	// 	where
-	//     K: Borrow<Q>,
-	//     Q: Ord + ?Sized{
+	pub fn remove<Q>(&mut self, search_key : &Q) -> Option<V>
+		where
+	    K: Borrow<Q>,
+	    Q: Ord + ?Sized{
 
-	//     let mut target = self.root;
- //    	while let Some(node) = unsafe{target.as_mut()}{
- //    		let ord = search_key.cmp(node.entry.key.borrow());
- //    		match ord{
- //    			Ordering::Less=>{target = node.left;},
- //    			Ordering::Greater=>{target = node.right;},
- //    			Ordering::Equal=>{
+	    let mut target = self.root;
+    	while let Some(node) = unsafe{target.as_mut()}{
+    		let ord = search_key.cmp(node.entry.key.borrow());
+    		match ord{
+    			Ordering::Less=>{target = node.left;},
+    			Ordering::Greater=>{target = node.right;},
+    			Ordering::Equal=>{
 
- //    				let result = node.entry.value;
- //    				self.remove_node(node);
- //    				return Some(result);
+    				let result = self.remove_node(node);
+    				return Some(result.value);
 
- //    			},
- //    		}
+    			},
+    		}
     		
- //    	}
- //    	return None;
+    	}
+    	return None;
 
-	// }
+	}
 	// pub fn iter(&self) -> Iter<'_, K,V> {
  //        Iter { next: self.root.as_ref().map(|node| &**node) }
  //    }
