@@ -3,7 +3,8 @@ mod test {
 
 
 	use crate::collections::avl;
-
+	use std::time::Instant;
+	use std::collections::btree_map;
 	#[test]
     fn init() {
     	let tree = avl::AVLTree::<u8,i32>::new();
@@ -154,4 +155,56 @@ mod test {
     // 		assert_eq!(true, tree.insert(i as u8, DropTest{value:7}));
     // 	}
     // }
+
+
+     #[test]
+    fn simple_perf() {
+
+    	{
+	    	let now = Instant::now();
+	    	let mut tree = avl::AVLTree::<u32,u32>::new();
+
+	    	for i in 0..100000{
+	    		tree.insert(i,i);
+	    	}
+	    	for j in 0..64{
+	    	for i in 0..100000{
+	    		assert_eq!(true, tree.contains(&i));
+	    	}
+	    	}
+	    	for i in 0..100000{
+	    		tree.remove(&i);
+	    	}
+	    	for i in 0..100000{
+	    		tree.insert(i,i);
+	    		tree.remove(&i);
+	    	}
+
+	    	println!("AVLTree {} micros", now.elapsed().as_micros());
+    	}
+    	{
+	    	let now = Instant::now();
+	    	let mut tree = btree_map::BTreeMap::<u32,u32>::new();
+
+	    	for i in 0..100000{
+	    		tree.insert(i,i);
+	    	}
+	    	for j in 0..64{
+	    	for i in 0..100000{
+	    		assert_eq!(true, tree.contains_key(&i));
+	    	}
+	    	}
+	    	for i in 0..100000{
+	    		tree.remove(&i);
+	    	}
+	    	for i in 0..100000{
+	    		tree.insert(i,i);
+	    		tree.remove(&i);
+	    	}
+
+	    	println!("BTree {} micros", now.elapsed().as_micros());
+    	}
+
+
+    }
 }

@@ -5,7 +5,7 @@ use core::arch::x86_64::*;
 use core::ptr::null_mut;
 use core::sync::atomic::AtomicUsize;
 
-struct MemoryManager<'a> {
+pub struct MemoryManager<'a> {
     pool_64: MemoryPool<'a>,
     pool_128: MemoryPool<'a>,
     pool_256: MemoryPool<'a>,
