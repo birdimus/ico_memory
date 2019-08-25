@@ -75,6 +75,9 @@ mod test {
     	}
 
     }
+
+
+
     #[test]
     fn iterator() {
     	let mut tree = avl::AVLTree::<u8,i32>::new();
@@ -84,14 +87,71 @@ mod test {
     		assert_eq!(tree.len(), i+1);
     	}
 
-    	let mut iter = tree.iter();
-    	let mut blah = iter.next();
-    	while blah.is_some(){
-    		
-    		blah = iter.next();
+    	{
+	    	let mut iter = tree.iter();
+	    	let mut blah = iter.next();
+	    	while blah.is_some(){
+
+	    		blah = iter.next();
+	    	}
+    	}
+    	{
+	    	let mut iter = tree.iter();
+	    	let mut blah = iter.next_back();
+	    	while blah.is_some(){
+
+	    		blah = iter.next_back();
+	    	}
+    	}
+    	{
+	    	let mut iter = tree.iter();
+	    	let mut blah = iter.next_back();
+	    	while blah.is_some(){
+	    		blah = iter.next();
+	    		if blah.is_some(){
+	    			blah = iter.next_back();
+	    		}
+	    	}
     	}
 
     }
-
-
+    static mut dropcount : u32 = 0;
+    struct DropTest{
+    	pub value : u32,
+    }
+    impl Drop for DropTest{
+    	fn drop(&mut self) {
+    		// assert_eq!(self.value, 5);
+    		// println!("drop {}", self.value);
+    		unsafe{dropcount += 1};
+    		// self.value = 0;
+    	}
+    }
+    #[test]
+    fn gc() {
+    	{
+    	let mut tree = avl::AVLTree::<u8,DropTest>::new();
+    	for i in 0..=255{
+    		assert_eq!(true, tree.insert(i as u8, DropTest{value:i}));
+    	}
+    	for i in 0..=255{
+    		// assert_eq!(tree.get(&(i as u8)).unwrap().value, 5);
+    	}
+    	}
+    	unsafe{
+    	println!("drop count {}", dropcount) ;
+    	}
+    }
+    // #[test]
+    // fn clear_gc() {
+    // 	let mut tree = avl::AVLTree::<u8,DropTest>::new();
+    // 	for i in 0..=255{
+    // 		assert_eq!(true, tree.insert(i as u8, DropTest{value:6}));
+    // 	}
+    // 	tree.clear();
+    // 	assert_eq!(tree.len(), 0);
+    // 	for i in 0..=255{
+    // 		assert_eq!(true, tree.insert(i as u8, DropTest{value:7}));
+    // 	}
+    // }
 }

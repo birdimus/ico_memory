@@ -20,7 +20,17 @@ pub struct Entry<K: Ord, V>{
 	key: K,
     value: V,
 }
-
+impl<K: Ord, V> Entry<K, V>{
+	pub fn key(&self) ->&K{
+		return &self.key;
+	}
+	pub fn value(&self) ->&V{
+		return &self.value;
+	}
+	pub fn set_value(&mut self, v : V){
+		return self.value = v;
+	}
+}
 pub struct AVLNode<K: Ord, V> {
     entry : Entry<K,V>,
     parent: *mut AVLNode<K, V>,
@@ -199,9 +209,8 @@ impl<K: Ord, V> AVLNode<K, V>{
 	// 	return &mut self.entry;
 	// }
 	
-	// pub fn extract(&mut self) ->(&mut Entry<K,V>, Option<&mut AVLNode<K, V> >){
-	// 	return (&mut self.entry, self.left.as_mut().map(|node| &mut **node)   );
-	// }
+	
+
 }
 
 
@@ -418,12 +427,8 @@ impl<K: Ord, V> AVLTree<K, V>{
 		
 		if self.root.is_null(){
 			
-			let mut raw_node : *mut AVLNode<K, V> = ptr::null_mut();
-			unsafe{
-				let layout = core::alloc::Layout::from_size_align_unchecked(core::mem::size_of::<AVLNode<K, V>>(), core::mem::align_of::<AVLNode<K, V>>());
-				raw_node = alloc::alloc::alloc(layout) as *mut AVLNode<K, V>;
-				*raw_node = AVLNode::new(key, value);
-			}
+			let raw_node = Box::into_raw(Box::new(AVLNode::new(key, value)));
+			
 			self.count += 1;
 			self.first = raw_node;
 			self.last = raw_node;
@@ -446,13 +451,7 @@ impl<K: Ord, V> AVLTree<K, V>{
     		}
 		}
 		
-
-		let mut raw_node : *mut AVLNode<K, V> = ptr::null_mut();
-		unsafe{
-			let layout = core::alloc::Layout::from_size_align_unchecked(core::mem::size_of::<AVLNode<K, V>>(), core::mem::align_of::<AVLNode<K, V>>());
-			raw_node = alloc::alloc::alloc(layout) as *mut AVLNode<K, V>;
-			*raw_node = AVLNode::new(key, value);
-		}
+		let raw_node = Box::into_raw(Box::new(AVLNode::new(key, value)));
 		self.count += 1;
 		let mut new_node = unsafe{raw_node.as_mut().unwrap()};
 		let mut new_node_parent = unsafe{parent.as_mut().unwrap()};
@@ -579,7 +578,33 @@ impl<K: Ord, V> AVLTree<K, V>{
    	 	}
     }
 
-    /// Clear the binary tree by re-using parent pointers as a stack
+    pub fn iter_mut<'a>(&'a mut self) -> IterMut<'a, K,V> {
+		unsafe{
+        return IterMut { 
+        	head: self.first.as_mut(),
+        	tail: self.last.as_mut(),
+        	count: self.len(),
+        };
+   	 	}
+    }
+
+    pub fn drain(&mut self) -> Drain<K,V> {
+		unsafe{
+        let d = Drain { 
+        	stack: self.root,
+        	count: self.len(),
+        };
+        self.count = 0;
+    	self.root = ptr::null_mut();
+    	self.first = ptr::null_mut();
+    	self.last = ptr::null_mut();
+
+        return d;
+   	 	}
+    }
+
+
+    /// Clears the binary tree by re-using parent pointers as a stack instead of DFS recursion. O(n).
     pub fn clear(&mut self){
     	let mut stack : *mut AVLNode<K, V> = self.root;
     	while !stack.is_null(){
@@ -607,9 +632,7 @@ impl<K: Ord, V> AVLTree<K, V>{
     	self.first = ptr::null_mut();
     	self.last = ptr::null_mut();
     }
- //    pub fn iter_mut(&mut self) -> IterMut<'_, K, V> {
- //        IterMut { next: self.root.as_mut().map(|node| &mut **node) }
- //    }
+
 
 }
 
@@ -619,7 +642,9 @@ impl <K: Ord, V> Drop for AVLTree<K, V>{
 	}
 }
 
-// pub struct IntoIter<T>(List<T>);
+
+
+
 pub struct Iter<'a, K: Ord, V> {
     head: Option<&'a AVLNode<K, V> >,
     tail: Option<&'a AVLNode<K, V> >,
@@ -657,67 +682,119 @@ impl<'a, K: Ord, V> DoubleEndedIterator for Iter<'a, K, V>{
 		return Some(result);
     }
 }
-// pub struct IterMut<'a, K: Ord, V> {
-//     next: Option<&'a mut AVLNode<K, V> >,
-// }
-// pub trait ForwardBackwardIterator : Iterator {
-//     fn prev(&mut self) -> Option<Self::Item>;
-// }
-// pub trait ForwardBackwardIteratorMut : Iterator {
-//     fn prev(&mut self) -> Option<Self::Item>;
-// }
 
-// impl<'a, K: Ord, V> Iterator for Iter<'a, K, V> {
-//     type Item = &'a Entry<K,V>;
+pub struct Drain<K: Ord, V> {
+	stack : *mut AVLNode<K, V>,
+	count : u32,
+}
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         self.next.map(|node| {
-//             self.next = node.next();//.as_ref().map(|node| &**node);
-//             return &node.entry;
-//         })
-//     }
-// }
-// impl<'a, K: Ord, V> ForwardBackwardIterator for Iter<'a, K, V> {
+impl<K: Ord, V> Iterator for Drain<K, V> {
+	type Item = Entry<K,V>;
+	fn next(&mut self) -> Option<Entry<K,V>> {
+		if self.stack.is_null(){ return None;}
 
-//     fn prev(&mut self) -> Option<Self::Item> {
-//         self.next.map(|node| {
-//             self.next = node.previous();//.as_ref().map(|node| &**node);
-//             return &node.entry;
-//         })
-//     }
-// }
+		//pop the first element off the stack.
+		let tmp = self.stack;
+		let pop_node = unsafe{tmp.as_mut().unwrap()};
+		self.stack = pop_node.parent;
 
-// impl<'a, K: Ord, V> Iterator for IterMut<'a, K, V> {
-//     type Item = &'a mut Entry<K,V>;
+		if !pop_node.left.is_null(){
+			let left_node = unsafe{pop_node.left.as_mut().unwrap()};
+			left_node.parent = self.stack;
+			self.stack = pop_node.left;
+		}
 
-//     fn next(&mut self) -> Option<Self::Item> {
+		if !pop_node.right.is_null(){
+			let right_node = unsafe{pop_node.right.as_mut().unwrap()};
+			right_node.parent = self.stack;
+			self.stack = pop_node.right;
+		}
+		self.count -= 1;
+		let drop_box : Box<AVLNode<K, V>> = unsafe{Box::from_raw(tmp)};
+    	return Some(drop_box.entry);
+    }
+    fn size_hint(&self) -> (usize, Option<usize>){
+    	return (self.count as usize, Some(self.count as usize));
+    }
+}
 
-//     	let t = self.next.take();
-//     	if(t.is_none()){return None;}
-//     	let q = t.unwrap();
-//     	//This works around the borrow checker being a bit clueless with regard to borrowing multiple parts of a struct.
+impl <K: Ord, V> Drop for Drain<K, V>{
+	fn drop(&mut self) {
+		while !self.stack.is_null(){
+    		//pop the first element off the stack.
+    		let tmp = self.stack;
+    		let pop_node = unsafe{tmp.as_mut().unwrap()};
+    		self.stack = pop_node.parent;
 
-//     	self.next = q.next_mut();
+    		if !pop_node.left.is_null(){
+    			let left_node = unsafe{pop_node.left.as_mut().unwrap()};
+    			left_node.parent = self.stack;
+    			self.stack = pop_node.left;
+    		}
 
+    		if !pop_node.right.is_null(){
+    			let right_node = unsafe{pop_node.right.as_mut().unwrap()};
+    			right_node.parent = self.stack;
+    			self.stack = pop_node.right;
+    		}
 
-//     	return None;//Some( borrow_hack.0);
+    		let drop_box : Box<AVLNode<K, V>> = unsafe{Box::from_raw(tmp)};
+    	}
+	}
+}
+impl<K: Ord, V> FusedIterator for Drain<K, V>{}
+impl<K: Ord, V> ExactSizeIterator for Drain<K, V>{
+    fn len(&self) -> usize{
+    	return self.count as usize;
+    }
+}
+pub struct IterMut<'a, K: Ord, V> {
+    head: Option<&'a mut AVLNode<K, V> >,
+    tail: Option<&'a mut AVLNode<K, V> >,
+    count : u32,
+}
+impl<'a, K: Ord, V> Iterator for IterMut<'a, K, V> {
+	type Item = &'a mut Entry<K,V>;
+	fn next(&mut self) -> Option<&'a mut Entry<K,V>> {
+		if self.count == 0 {return None};
 
-//     }
-// }
-// impl<'a, K: Ord, V> ForwardBackwardIteratorMut for IterMut<'a, K, V> {
+		self.count -=1;
 
-//     fn prev(&mut self) -> Option<Self::Item> {
-//     	let t = self.next.take();
-//     	if(t.is_none()){return None;}
-//     	let q = t.unwrap();
-//     	//This works around the borrow checker being a bit clueless with regard to borrowing multiple parts of a struct.
-//     	let borrow_hack = q.extract();
+		//We have to do this because the borrow checker can't figure out these are separate parts of the struct.
+		let head = self.head.take().unwrap() as *mut AVLNode<K, V>;
+		let mut result = None;
+		unsafe{
+			result = Some(&mut (*head).entry);
+			self.head = head.as_mut().unwrap().successor_mut();
+		}
+		
+		return result;
+    }
+    fn size_hint(&self) -> (usize, Option<usize>){
+    	return (self.count as usize, Some(self.count as usize));
+    }
+}
+impl<'a, K: Ord, V> FusedIterator for IterMut<'a, K, V>{}
+impl<'a, K: Ord, V> ExactSizeIterator for IterMut<'a, K, V>{
+    fn len(&self) -> usize{
+    	return self.count as usize;
+    }
+}
 
-//     	self.next = borrow_hack.1;
-//     	return Some( borrow_hack.0);
+impl<'a, K: Ord, V> DoubleEndedIterator for IterMut<'a, K, V>{
 
-//     }
-// }
+	fn next_back(&mut self) -> Option<&'a mut Entry<K,V>> {
+		if self.count == 0 {return None};
+		self.count -=1;
+		let tail = self.tail.take().unwrap() as *mut AVLNode<K, V>;
+		let mut result = None;
+		unsafe{
+			result = Some(&mut (*tail).entry);
+			self.tail = tail.as_mut().unwrap().predecessor_mut();
+		}
+		return result;
+    }
+}
 
 #[cfg(test)]
 mod test;
