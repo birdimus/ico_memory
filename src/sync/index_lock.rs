@@ -43,7 +43,7 @@ impl<T> Spinlock<T> {
                 match self.lock.compare_exchange_weak(
                     lock_value,
                     target,
-                    Ordering::SeqCst,
+                    Ordering::Acquire,
                     Ordering::Acquire,
                 ) {
                     Ok(_) => {
@@ -165,7 +165,7 @@ impl IndexSpinlock {
                 match self.lock.compare_exchange_weak(
                     lock_value,
                     target,
-                    Ordering::SeqCst,
+                    Ordering::Acquire,
                     Ordering::Acquire,
                 ) {
                     Ok(_) => {

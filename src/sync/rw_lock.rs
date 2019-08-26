@@ -32,7 +32,7 @@ impl<T> RWSpinLock<T> {
                 match self.lock.compare_exchange_weak(
                     lock_value,
                     target,
-                    Ordering::SeqCst,
+                    Ordering::Acquire,
                     Ordering::Acquire,
                 ) {
                     Ok(_) => {
@@ -53,14 +53,14 @@ impl<T> RWSpinLock<T> {
     pub fn write(&self) -> RWSpinWriteGuard<T> {
         let mut lock_value = self
             .lock
-            .fetch_or(RWSpinLock::<T>::WRITE_REQUEST, Ordering::SeqCst);
+            .fetch_or(RWSpinLock::<T>::WRITE_REQUEST, Ordering::Acquire);
         loop {
             if lock_value == RWSpinLock::<T>::WRITE_REQUEST {
                 let target = RWSpinLock::<T>::WRITE_LOCK;
                 match self.lock.compare_exchange_weak(
                     lock_value,
                     target,
-                    Ordering::SeqCst,
+                    Ordering::Acquire,
                     Ordering::Relaxed,
                 ) {
                     Ok(_) => {
@@ -77,14 +77,67 @@ impl<T> RWSpinLock<T> {
             // We must continually request, because a write lock will clear all write flags on release
             lock_value = self
                 .lock
-                .fetch_or(RWSpinLock::<T>::WRITE_REQUEST, Ordering::SeqCst);
+                .fetch_or(RWSpinLock::<T>::WRITE_REQUEST, Ordering::Acquire);
+        }
+    }
+    #[inline]
+    pub fn try_read(&self) -> Option<RWSpinReadGuard<T>> {
+        let mut lock_value = self.lock.load(Ordering::Acquire);
+        if lock_value < RWSpinLock::<T>::WRITE_REQUEST {
+            let target = lock_value + 1;
+            match self.lock.compare_exchange(
+                lock_value,
+                target,
+                Ordering::Acquire,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => {
+                    return Some(RWSpinReadGuard {
+                        lock: self,
+                        // data: unsafe { &*self.data.get() },
+                    });
+                }
+                Err(_x) => return None,
+            }
+        }
+        return None;
+    }
+
+    #[inline]
+    pub fn mark_write_request(&self){
+        self
+            .lock
+            .fetch_or(RWSpinLock::<T>::WRITE_REQUEST, Ordering::Acquire);
+    }
+    #[inline]
+    pub fn unmark_write_request(&self){
+        self
+            .lock
+            .fetch_and(!RWSpinLock::<T>::WRITE_REQUEST, Ordering::Release);
+    }
+    #[inline]
+    pub fn try_write(&self) -> Option<RWSpinWriteGuard<T>> {
+        match self.lock.compare_exchange(
+                    RWSpinLock::<T>::WRITE_REQUEST,
+                    RWSpinLock::<T>::WRITE_LOCK,
+                    Ordering::Acquire,
+                    Ordering::Relaxed,
+                ) {
+
+                Ok(_) => {
+                    return Some(RWSpinWriteGuard {
+                        lock: self,
+                        // data: unsafe { &mut *self.data.get() },
+                    });
+                }
+                Err(_x) => return None,
         }
     }
     #[inline]
     pub fn upgrade(&self, read: RWSpinReadGuard<T>) -> RWSpinWriteGuard<T> {
         let mut lock_value = self
             .lock
-            .fetch_or(RWSpinLock::<T>::WRITE_REQUEST, Ordering::SeqCst);
+            .fetch_or(RWSpinLock::<T>::WRITE_REQUEST, Ordering::Acquire);
         core::mem::drop(read);
         loop {
             if lock_value == RWSpinLock::<T>::WRITE_REQUEST {
@@ -92,7 +145,7 @@ impl<T> RWSpinLock<T> {
                 match self.lock.compare_exchange_weak(
                     lock_value,
                     target,
-                    Ordering::SeqCst,
+                    Ordering::Acquire,
                     Ordering::Relaxed,
                 ) {
                     Ok(_) => {
@@ -109,7 +162,7 @@ impl<T> RWSpinLock<T> {
             // We must continually request, because a write lock will clear all write flags on release
             lock_value = self
                 .lock
-                .fetch_or(RWSpinLock::<T>::WRITE_REQUEST, Ordering::SeqCst);
+                .fetch_or(RWSpinLock::<T>::WRITE_REQUEST, Ordering::Acquire);
         }
     }
 
@@ -131,7 +184,7 @@ pub struct RWSpinReadGuard<'a, T: 'a> {
 impl<'a, T> Drop for RWSpinReadGuard<'a, T> {
     fn drop(&mut self) {
         //println!("dropped read");
-        self.lock.lock.fetch_sub(1, Ordering::SeqCst);
+        self.lock.lock.fetch_sub(1, Ordering::Release);
     }
 }
 impl<'a, T> Deref for RWSpinReadGuard<'a, T> {
@@ -148,7 +201,7 @@ pub struct RWSpinWriteGuard<'a, T: 'a> {
 impl<'a, T> Drop for RWSpinWriteGuard<'a, T> {
     fn drop(&mut self) {
         //println!("dropped write");
-        self.lock.lock.store(0, Ordering::SeqCst);
+        self.lock.lock.store(0, Ordering::Release);
         //self.lock.fetch_and(!RWSpinLock::<T>::WRITE_MASK, Ordering::SeqCst);
     }
 }
