@@ -5,9 +5,11 @@ use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
 
 /// Holds up 2^31 values
+#[repr(C)]
 pub struct Spinlock<T> {
-    lock: AtomicU32,
+    
     data: UnsafeCell<T>,
+    lock: AtomicU32,
 }
 
 impl<T> Spinlock<T> {

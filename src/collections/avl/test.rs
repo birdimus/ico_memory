@@ -159,7 +159,7 @@ mod test {
 
      #[test]
     fn simple_perf() {
-
+    	//As it turns out, and perhaps unsurprisingly,  BTree wins by a huge margin in this
     	{
 	    	let now = Instant::now();
 	    	let mut tree = avl::AVLTree::<u32,u32>::new();

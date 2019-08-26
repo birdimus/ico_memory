@@ -43,6 +43,7 @@ impl<'a> Queue<'a> {
 
     pub const fn new(slice: &'a [AtomicUsize], capacity: usize) -> Queue<'a> {
         //pub const fn new(buffer_ptr : *const usize, capacity : usize)->Queue{
+            
         return Queue::<'a> {
             head: IndexSpinlock::new(0),
             tail: IndexSpinlock::new(0),

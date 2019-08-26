@@ -31,7 +31,6 @@ mod test {
 
     // Note: as a comparison, one can mark this as the global allocator
     // #[global_allocator]
-
     static MANAGER: MemoryManager = MemoryManager::new(
         &BUFFER_64,
         MAX_64,

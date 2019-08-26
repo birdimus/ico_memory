@@ -4,6 +4,7 @@ use core::ops::DerefMut;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
 
+#[repr(C)]
 pub struct RWSpinLock<T> {
     lock: AtomicU32,
     data: UnsafeCell<T>,
