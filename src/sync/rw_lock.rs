@@ -6,11 +6,12 @@ use core::sync::atomic::Ordering;
 
 #[repr(C)]
 pub struct RWSpinLock<T> {
-    lock: AtomicU32,
+    
     data: UnsafeCell<T>,
+    lock: AtomicU32,
 }
 unsafe impl<T: Send> Send for RWSpinLock<T> {}
-unsafe impl<T: Sync> Sync for RWSpinLock<T> {}
+unsafe impl<T: Sync + Send> Sync for RWSpinLock<T> {}
 
 impl<T> RWSpinLock<T> {
     const WRITE_LOCK: u32 = 1 << 31;

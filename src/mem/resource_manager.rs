@@ -40,6 +40,8 @@ struct Resource<'a, T>{
 	handle : Handle,
 	_phantom : PhantomData<T>,
 }
+unsafe impl<'a, T: Send> Send for Resource<'a, T> {}
+unsafe impl<'a, T: Sync + Send> Sync for Resource<'a, T> {}
 impl<'a, T> Resource<'a, T> {
 	pub fn destroy(&self){
 		// self.manager.ref_count[self.index as usize].fetch_or(DESTROY_REQUEST, Ordering::Release);
@@ -180,6 +182,8 @@ impl<'a, T> ResourceManager<'a, T> {
 		let mut value = ref_count.load(Ordering::Acquire);
 		let unique = (value>>32) as u32;
 		let references = INDEX_MASK & (value);
+
+		// This will fail if there is a pending destroy request or lock, or the unique value has changed.
 		while unique == handle.unique{
 			let target = value | DESTROY_REQUEST;
 			match ref_count.compare_exchange_weak(value, target, Ordering::Release, Ordering::Acquire){

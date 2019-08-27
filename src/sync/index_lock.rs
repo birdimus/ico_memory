@@ -92,7 +92,7 @@ impl<T> Spinlock<T> {
 }
 
 unsafe impl<T: Send> Send for Spinlock<T> {}
-unsafe impl<T: Sync> Sync for Spinlock<T> {}
+unsafe impl<T: Send> Sync for Spinlock<T> {}
 
 pub struct SpinlockGuard<'a, T: 'a> {
     lock: &'a Spinlock<T>,
