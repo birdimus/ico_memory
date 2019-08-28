@@ -19,21 +19,25 @@ pub struct BinaryHeap<T : Ord> {
 impl<T : Ord> BinaryHeap<T> {
 
 	pub fn new() ->BinaryHeap<T>{
-		return BinaryHeap{
+		let mut b = BinaryHeap{
 			data:Vec::new(),
 			heap_index:Vec::new(),
 			heap:Vec::with_capacity(1),// 1-indexed for performance
 			heap_len:0,
 		};
+		b.heap.push(0xFFFFFFFF);
+		return b;
 	}
 
 	pub fn with_capacity(capacity : u32)->BinaryHeap<T>{
-		return BinaryHeap{
+		let mut b = BinaryHeap{
 			data:Vec::with_capacity(capacity as usize),
 			heap_index:Vec::with_capacity(capacity as usize),
 			heap:Vec::with_capacity(capacity as usize + 1),// 1-indexed for performance
 			heap_len:0,
 		};
+		b.heap.push(0xFFFFFFFF);
+		return b;
 	}
 
 	pub fn capacity(&self)->u32{
@@ -132,7 +136,7 @@ impl<T : Ord> BinaryHeap<T> {
 
 
 		// Should be tail-recursive.
-		self.heapify(best_data_index);
+		self.heapify(best_index);
 	}
 
 	fn heap_remove(&mut self, index : u32)->T{
@@ -154,29 +158,32 @@ impl<T : Ord> BinaryHeap<T> {
 
 
 	pub fn push(&mut self, item : T){
-		let prev_heap_len = self.heap.len() as u32;
+		let prev_heap_len = self.data.len() as u32;
 
 		// If the heap is full, we must keep track of the new indicies we've created
 		if(self.heap_len == prev_heap_len){
-			let data_index = self.data.len() as u32; //This should be heap_len -1.
+
 			// This data will never be moved.
 			self.data.push(MaybeUninit::new(item));
+			self.heap_len +=1;
 
 			// This establishes a relationship between this heap node and the data.
 			// It must forever remain true that these two indices point to each other.
-			self.heap_index.push(prev_heap_len);
-			self.heap.push(data_index);
+			self.heap_index.push(self.heap_len);
+			self.heap.push(prev_heap_len);
 
-			self.heap_len +=1;
 		}
 		else{
 			// Add first since we are 1-indexed.
 			self.heap_len +=1;
+			
 			//Take the last element in the heap.
-			let data_index = self.heap[self.heap_len  as usize];
+			let data_index = self.heap[self.heap_len as usize];
+
 			// That last heap element still refers to a slot.  That slot is empty, so we can reuse it.
-			self.data[data_index as usize] = MaybeUninit::new(item);
 			self.heap_index[data_index as usize] = self.heap_len;
+			self.data[data_index as usize] = MaybeUninit::new(item);
+			
 		}
 
 		// Normally we'd use the len-1 (or previous len), but we are 1-indexing.
@@ -188,6 +195,10 @@ impl<T : Ord> BinaryHeap<T> {
 			return None;
 		}
 		return Some(self.heap_remove(1));
-		// return None;
 	}
+
 }
+
+
+#[cfg(test)]
+mod test;
