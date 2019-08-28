@@ -81,7 +81,7 @@ impl<T : Ord> BinaryHeap<T> {
 
 	fn sift_up(&mut self, mut index : u32){
 
-		let mut data_index = self.heap[index as usize];
+		let data_index = self.heap[index as usize];
 		let data : &T = unsafe{self.data[data_index as usize].as_ptr().as_ref().unwrap()};
 
 		while index > 1{
@@ -97,7 +97,6 @@ impl<T : Ord> BinaryHeap<T> {
 				self.heap_index.swap(data_index as usize, parent_data_index as usize);
 
 				index = parent_index;
-				data_index = parent_data_index;
 			}
 			else{
 				return;
@@ -152,6 +151,7 @@ impl<T : Ord> BinaryHeap<T> {
 		//Now we need to restore the heap, starting from the top.
 		self.heapify(1);
 		
+
 		//Just read it out, damnit.
 		return unsafe{ptr::read(self.data[data_index as usize].as_mut_ptr())};
 	}
@@ -168,7 +168,7 @@ impl<T : Ord> BinaryHeap<T> {
 			self.heap_len +=1;
 
 			// This establishes a relationship between this heap node and the data.
-			// It must forever remain true that these two indices point to each other.
+			// The heap node MUST always point to the heap_index node.
 			self.heap_index.push(self.heap_len);
 			self.heap.push(prev_heap_len);
 
@@ -176,7 +176,7 @@ impl<T : Ord> BinaryHeap<T> {
 		else{
 			// Add first since we are 1-indexed.
 			self.heap_len +=1;
-			
+
 			//Take the last element in the heap.
 			let data_index = self.heap[self.heap_len as usize];
 
