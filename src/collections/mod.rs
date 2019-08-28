@@ -1,1 +1,2 @@
-//mod avl;
+mod avl;
+mod binary_heap;

@@ -1,12 +1,4 @@
-//concurrent hashtable
-// N buckets
-// Each bucket is a tree protected by a rwlock\
-// Add and Remove alloc / dealloc
 
-// concurrent linked list?
-// each element protected by rwlock
-// hand over hand locking
-// Add and Remove alloc / dealloc
 
 use core::cmp::Ord;
 use core::cmp::Ordering;
