@@ -6,7 +6,6 @@ use core::sync::atomic::Ordering;
 
 #[repr(C)]
 pub struct RWSpinLock<T> {
-    
     data: UnsafeCell<T>,
     lock: AtomicU32,
 }
@@ -106,33 +105,30 @@ impl<T> RWSpinLock<T> {
     }
 
     #[inline]
-    pub fn mark_write_request(&self){
-        self
-            .lock
+    pub fn mark_write_request(&self) {
+        self.lock
             .fetch_or(RWSpinLock::<T>::WRITE_REQUEST, Ordering::Acquire);
     }
     #[inline]
-    pub fn unmark_write_request(&self){
-        self
-            .lock
+    pub fn unmark_write_request(&self) {
+        self.lock
             .fetch_and(!RWSpinLock::<T>::WRITE_REQUEST, Ordering::Release);
     }
     #[inline]
     pub fn try_write(&self) -> Option<RWSpinWriteGuard<T>> {
         match self.lock.compare_exchange(
-                    RWSpinLock::<T>::WRITE_REQUEST,
-                    RWSpinLock::<T>::WRITE_LOCK,
-                    Ordering::Acquire,
-                    Ordering::Relaxed,
-                ) {
-
-                Ok(_) => {
-                    return Some(RWSpinWriteGuard {
-                        lock: self,
-                        // data: unsafe { &mut *self.data.get() },
-                    });
-                }
-                Err(_x) => return None,
+            RWSpinLock::<T>::WRITE_REQUEST,
+            RWSpinLock::<T>::WRITE_LOCK,
+            Ordering::Acquire,
+            Ordering::Relaxed,
+        ) {
+            Ok(_) => {
+                return Some(RWSpinWriteGuard {
+                    lock: self,
+                    // data: unsafe { &mut *self.data.get() },
+                });
+            }
+            Err(_x) => return None,
         }
     }
     #[inline]
