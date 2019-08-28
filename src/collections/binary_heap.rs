@@ -4,6 +4,7 @@ use core::iter::FusedIterator;
 use core::iter::Iterator;
 use core::mem::MaybeUninit;
 use core::ptr;
+
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct Handle {
@@ -150,7 +151,8 @@ impl<T: Ord> BinaryHeap<T> {
         //Now we need to restore the heap, starting from the top.
         self.heapify(1);
 
-        //This is optional - but allows us to invalidate the data.
+        // This is optional - but allows us to invalidate the data.
+        // If we use unique values, this isn't necessary.
         //self.heap_index[data_index as usize].index = 0xFFFFFFFF;
 
         // This is a better way to invalidate handles
