@@ -91,13 +91,14 @@ mod test {
             v.push (b.push(i));
         }
 
+        // This resizes keys, some larger some smaller.
         for i in 0..30 {
-            b.replace(v[i], i as i32%3);
+            b.replace(v[i], (i as i32%3)*20  );
         }
 
         for j in 0..3 {
             for i in 0..10 {
-                    assert_eq!(b.pop().unwrap(), j as i32, "binary heap pop {}", j);
+                    assert_eq!(b.pop().unwrap(), 20*j as i32, "binary heap pop {}", j);
                 
             }
         }
