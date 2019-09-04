@@ -4,7 +4,6 @@
 mod test {
     use crate::mem::queue::QUEUE32_NULL;
     use crate::mem::resource_manager::ResourceManager;
-    use crate::mem::resource_manager::Handle;
     use crate::mem::queue::Swap;
     use crate::sync::index_lock::IndexSpinlock;
     use core::sync::atomic::AtomicU32;
@@ -27,7 +26,7 @@ static LOCK: IndexSpinlock = IndexSpinlock::new(0);
 fn init() {
     let l = LOCK.lock();
     for k in 0..65535{
-        let mut t : Vec<Handle> = Vec::new();
+        let mut t : Vec<u64> = Vec::new();
         for i in 0..16{
             t.push(MANAGER.retain(i).unwrap());
         }

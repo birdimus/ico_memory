@@ -5,20 +5,23 @@ use std::sync::atomic::Ordering;
 
 
 use crate::mem::queue::Queue32;
-const I_MASK : u32 = (1<<18)-1;
-const UNIQUE_OFFSET : u32 = (1<<19);
+// const I_MASK : u32 = (1<<18)-1;
+// const UNIQUE_OFFSET : u32 = (1<<19);
 
 // Protects against uninitialized access on loop
-const INITIALIZED : u32 = (1<<18);
-// const REF_NULL : u32 = 0xFFFFFFFF;
+const INITIALIZED : u32 = 1;//(1<<18);
+const UNIQUE_OFFSET : u32 = 2;
 
+// #[derive(Copy, Clone, Debug)]
+// #[repr(C)]
+// pub struct Handle {
+//     value: u32, //20 bit index + 12 bit unique_id
+// }
 
-#[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub struct Handle {
-    value: u32, //20 bit index + 12 bit unique_id
-}
-
+//32 bit index + 1 bit 'in-use' flag + 32 bit unique
+const INDEX_MASK : u64 = (1<<32)-1;
+// const UNINITIALIZED : u64 = (1<<31);
+// const INITIALIZED : u64 = (1<<32);
 
 pub struct ResourceRef<'a, T : Sync> {
     pub value: &'a T,
@@ -52,17 +55,17 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 		};
 	}
 
-	fn increment_ref_count(&self, index : u32){
-		self.reference_counts[index as usize].fetch_add(1, Ordering::Release);
+	fn increment_ref_count(&self, index : usize){
+		self.reference_counts[index].fetch_add(1, Ordering::Release);
 	}
 
-	#[inline(always)]
-	fn next_uninitialized_index(index : u32)->u32{
-		return index.wrapping_add(UNIQUE_OFFSET) & !INITIALIZED;
-	}
+	// #[inline(always)]
+	// fn next_uninitialized_index(index : u32)->u32{
+	// 	return index.wrapping_add(UNIQUE_OFFSET) & !INITIALIZED;
+	// }
 
-	fn decrement_ref_count(&self, index : u32, next : u32){
-		let ref_count = &self.reference_counts[index as usize];
+	fn decrement_ref_count(&self, index : usize){
+		let ref_count = &self.reference_counts[index];
 		let previous = ref_count.fetch_sub(1, Ordering::AcqRel);
 
 		// There is no possible way to get another reference if this was the last one.  We must have already incremented the index.
@@ -70,14 +73,14 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 
 			unsafe{
 				// Sledgehammer this into mutable - we've protected it behind an atomic ref count.
-				core::ptr::drop_in_place(self.data[index as usize].as_ptr() as * mut T);
+				core::ptr::drop_in_place(self.data[index].as_ptr() as * mut T);
 
 				//We've wrapped around
-				if(next < UNIQUE_OFFSET){
-					
-				}
-				
-				self.free_queue.enqueue(next);
+				// if(next < UNIQUE_OFFSET){
+
+				// }
+				// let next = self.slots[index].load(Ordering::Acquire);
+				self.free_queue.enqueue(index as u32);
 			}
 			
 		}
@@ -89,29 +92,32 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 		if index < 0 || index >= self.capacity as isize {
 			panic!("Releasing an object we don't own!!!!");
 		}
-		let next = ResourceManager::<T>::next_uninitialized_index(self.slots[index as usize].load(Ordering::Acquire));
-		self.decrement_ref_count(index as u32, next);
+
+		self.decrement_ref_count(index as usize);
 	}
 
 	/// Clones a reference, incrementing the reference count.
 	pub fn clone_reference(&self, reference : &'a ResourceRef<T>) ->ResourceRef<'a,T>{
 		let ptr = reference.value as *const T;
-		let index = ((ptr as usize - self.data.as_ptr() as usize)/core::mem::size_of::<T>()) as u32;
+		let index = ((ptr as isize - self.data.as_ptr() as isize)/core::mem::size_of::<T>() as isize) ;
+		if index < 0 || index >= self.capacity as isize {
+			panic!("cloning an object we don't own!!!!");
+		}
 		//Since we already have one, it's safe to get another.
-		self.increment_ref_count(index);
+		self.increment_ref_count(index as usize);
 
 		return ResourceRef{value : reference.value};
 	}
 
 	/// Get a reference counted reference to the object based on a handle.  Returns None if the handle points to empty space.
-	pub fn get_reference(&self, handle : Handle) ->Option<ResourceRef<T>>{
-		let index = handle.value & I_MASK;
-
+	pub fn get_reference(&self, handle : u64) ->Option<ResourceRef<T>>{
+		let index = (handle & INDEX_MASK) as usize;
+		let unique = (handle >> 32) as u32;
 		self.increment_ref_count(index);
 		
-		if self.slots[index as usize].load(Ordering::Acquire) != handle.value{
-			let next = ResourceManager::<T>::next_uninitialized_index(handle.value);
-			self.decrement_ref_count(index, next);
+
+		if self.slots[index as usize].load(Ordering::Acquire) != unique{
+			self.decrement_ref_count(index);
 			return None;
 		}
 		else{
@@ -122,10 +128,10 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 	}
 
 	/// Store a T in the resource manager.  If space exists, this returns a handle to the object.  Otherwise returns None.
-	pub fn retain(&self, obj : T) -> Option<Handle>{
+	pub fn retain(&self, obj : T) -> Option<u64>{
 		let tmp = self.free_queue.dequeue();
 		let mut index;
-		let mut value;
+		let mut unique;
 		if(tmp.is_none()){
 			
 			// Assume this operation is going to succeed by incrementing the counter.
@@ -137,33 +143,34 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 				return None;
 			}
 
-			index = next;
-			value = index | INITIALIZED;
-			// Initialize the slot information
+			index = next as usize;
+			unique = INITIALIZED;
 			
 		}
 		else{
-			value = tmp.unwrap() | INITIALIZED;
-			index = value & I_MASK;
+			index = tmp.unwrap() as usize;
+			unique = self.slots[index].load(Ordering::Acquire) | INITIALIZED;
+
 		}
-		self.slots[index as usize].store(value, Ordering::Release);
+		self.slots[index].store(unique, Ordering::Release);
 		let mut t = self.data[index as usize].as_ptr() as * mut T;
 		unsafe{core::ptr::write(t, obj)};
 		self.reference_counts[index as usize].store(1, Ordering::Release);
 
-		return Some(Handle{value:value});
+		return Some( (index as u64) | ((unique as u64) <<32));
 	}
 
 	/// Release the local reference to the object stored at the handle location.  
 	/// The object will not actually be dropped until all references are released, however no handles will return the object.
-	pub fn release(&self, handle : Handle)->bool {
-		let index = handle.value & I_MASK;
-		let next = ResourceManager::<T>::next_uninitialized_index(handle.value);
+	pub fn release(&self, handle : u64)->bool {
+		let index = (handle & INDEX_MASK) as usize;
+		let unique = (handle >> 32) as u32;
+		let next = (unique & !INITIALIZED).wrapping_add(UNIQUE_OFFSET);
 
-		match self.slots[index as usize].compare_exchange(handle.value,
+		match self.slots[index].compare_exchange(unique,
 			next,Ordering::AcqRel, Ordering::Relaxed){
 			Ok(_)=>{
-				self.decrement_ref_count(index, next);
+				self.decrement_ref_count(index);
 				return true;
 			},
 
