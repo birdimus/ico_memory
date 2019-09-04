@@ -17,10 +17,23 @@ static COUNT_BUFFER: [AtomicU32; 1024] =
         unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([0; 1024]) };
 
 //This MUST be mutable.
-static mut DATA_BUFFER: [MaybeUninit<u64>; 1024] = [MaybeUninit::new(0);1024];
+static mut DATA_BUFFER: [MaybeUninit<Simple>; 1024] = unsafe { 
+    Swap::<[u64; 1024], [MaybeUninit<Simple>; 1024]>::get([0; 1024]) };
 
-static MANAGER : ResourceManager<u64> = unsafe{ResourceManager::new(&SLOT_BUFFER,&COUNT_BUFFER, &QUEUE_BUFFER,&DATA_BUFFER, 1024 )};
+static MANAGER : ResourceManager<Simple> = unsafe{ResourceManager::new(&SLOT_BUFFER,&COUNT_BUFFER, &QUEUE_BUFFER,&DATA_BUFFER, 1024 )};
 static LOCK: IndexSpinlock = IndexSpinlock::new(0);
+
+struct Simple{
+    data:u64,
+}
+
+impl Drop for Simple{
+     fn drop(&mut self){
+        // println!("drop {}",self.data);
+    }
+}
+
+
 
 #[test]
 fn init() {
@@ -28,10 +41,10 @@ fn init() {
     for k in 0..65535{
         let mut t : Vec<u64> = Vec::new();
         for i in 0..16{
-            t.push(MANAGER.retain(i).unwrap());
+            t.push(MANAGER.retain(Simple{data:i}).unwrap());
         }
         for i in 0..16{
-            assert_eq!(MANAGER.release(t.pop().unwrap()), true, "{} {}", i, k);
+            assert_eq!(MANAGER.release(t.pop().unwrap()), true, "{}", i);
         }
         
     }

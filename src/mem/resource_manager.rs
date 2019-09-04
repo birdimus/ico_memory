@@ -5,32 +5,18 @@ use std::sync::atomic::Ordering;
 
 
 use crate::mem::queue::Queue32;
-// const I_MASK : u32 = (1<<18)-1;
-// const UNIQUE_OFFSET : u32 = (1<<19);
 
-// Protects against uninitialized access on loop
-const INITIALIZED : u32 = 1;//(1<<18);
-const UNIQUE_OFFSET : u32 = 2;
-
-// #[derive(Copy, Clone, Debug)]
-// #[repr(C)]
-// pub struct Handle {
-//     value: u32, //20 bit index + 12 bit unique_id
-// }
+const INITIALIZED : u32 = 1; //'in use' flag
+const UNIQUE_OFFSET : u32 = 2; // unique value
 
 //32 bit index + 1 bit 'in-use' flag + 32 bit unique
 const INDEX_MASK : u64 = (1<<32)-1;
-// const UNINITIALIZED : u64 = (1<<31);
-// const INITIALIZED : u64 = (1<<32);
 
-pub struct ResourceRef<'a, T : Sync> {
-    pub value: &'a T,
-}
+
 
 pub struct ResourceManager<'a, T : Sync>{
 	reference_counts: &'a [AtomicU32],
 	slots: &'a [AtomicU32],
-	// data: *const T,
 	data: &'a [MaybeUninit<T>],
 	free_queue: Queue32<'a>,
 	high_water_mark : AtomicU32,
@@ -59,10 +45,6 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 		self.reference_counts[index].fetch_add(1, Ordering::Release);
 	}
 
-	// #[inline(always)]
-	// fn next_uninitialized_index(index : u32)->u32{
-	// 	return index.wrapping_add(UNIQUE_OFFSET) & !INITIALIZED;
-	// }
 
 	fn decrement_ref_count(&self, index : usize){
 		let ref_count = &self.reference_counts[index];
@@ -75,19 +57,14 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 				// Sledgehammer this into mutable - we've protected it behind an atomic ref count.
 				core::ptr::drop_in_place(self.data[index].as_ptr() as * mut T);
 
-				//We've wrapped around
-				// if(next < UNIQUE_OFFSET){
-
-				// }
-				// let next = self.slots[index].load(Ordering::Acquire);
 				self.free_queue.enqueue(index as u32);
 			}
 			
 		}
 	}
 
-	pub unsafe fn release_reference(&self, reference : &mut ResourceRef<T>){
-		let ptr = reference.value as *const T;
+	pub unsafe fn release_reference(&self, reference : &'a T){
+		let ptr = reference as *const T;
 		let index = ((ptr as isize - self.data.as_ptr() as isize)/core::mem::size_of::<T>() as isize);
 		if index < 0 || index >= self.capacity as isize {
 			panic!("Releasing an object we don't own!!!!");
@@ -97,8 +74,8 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 	}
 
 	/// Clones a reference, incrementing the reference count.
-	pub fn clone_reference(&self, reference : &'a ResourceRef<T>) ->ResourceRef<'a,T>{
-		let ptr = reference.value as *const T;
+	pub unsafe fn clone_reference(&self, reference : &'a T) ->&'a T{
+		let ptr = reference as *const T;
 		let index = ((ptr as isize - self.data.as_ptr() as isize)/core::mem::size_of::<T>() as isize) ;
 		if index < 0 || index >= self.capacity as isize {
 			panic!("cloning an object we don't own!!!!");
@@ -106,11 +83,11 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 		//Since we already have one, it's safe to get another.
 		self.increment_ref_count(index as usize);
 
-		return ResourceRef{value : reference.value};
+		return reference;
 	}
 
 	/// Get a reference counted reference to the object based on a handle.  Returns None if the handle points to empty space.
-	pub fn get_reference(&self, handle : u64) ->Option<ResourceRef<T>>{
+	pub unsafe fn get_reference(&self, handle : u64) ->Option<&'a T>{
 		let index = (handle & INDEX_MASK) as usize;
 		let unique = (handle >> 32) as u32;
 		self.increment_ref_count(index);
@@ -122,7 +99,7 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 		}
 		else{
 			unsafe{
-			return self.data[index as usize].as_ptr().as_ref().map(|val| ResourceRef{value : val});
+			return self.data[index as usize].as_ptr().as_ref().map(|val| val);
 			}
 		}
 	}
