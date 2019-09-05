@@ -1,6 +1,4 @@
-#![feature(untagged_unions)]
-#![feature(const_fn_union)]
-// #![feature(const_generics)]
+
 #![cfg_attr(not(any(test, feature = "std")), no_std)]
 
 pub mod collections;

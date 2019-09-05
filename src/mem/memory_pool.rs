@@ -101,9 +101,9 @@ impl Drop for BaseMemoryPool {
     }
 }
 
-pub struct MemoryPool<'a> {
+pub struct MemoryPool {
     memory_pool: BaseMemoryPool,
-    free_queue: Queue<'a>,
+    free_queue: Queue,
 }
 
 // const fn is_power_of_two_or_zero(value: usize) -> bool {
@@ -111,13 +111,13 @@ pub struct MemoryPool<'a> {
 // return (value & (value - 1)) == 0;
 // }
 
-impl<'a> MemoryPool<'a> {
+impl<'a> MemoryPool {
     pub const fn new(
         block_size: usize,
         //block_count: usize,
-        slice: &'a [AtomicUsize],
+        slice: *mut AtomicUsize,
         capacity: usize,
-    ) -> MemoryPool<'a> {
+    ) -> MemoryPool {
         // assert!(is_power_of_two_or_zero(block_size));
         // assert!(is_power_of_two_or_zero(capacity));
         // assert!(block_size != 0);

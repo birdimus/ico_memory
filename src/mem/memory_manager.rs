@@ -4,31 +4,31 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::arch::x86_64::*;
 use core::sync::atomic::AtomicUsize;
 
-pub struct MemoryManager<'a> {
-    pool_64: MemoryPool<'a>,
-    pool_128: MemoryPool<'a>,
-    pool_256: MemoryPool<'a>,
-    pool_512: MemoryPool<'a>,
-    pool_1024: MemoryPool<'a>,
-    pool_2048: MemoryPool<'a>,
+pub struct MemoryManager {
+    pool_64: MemoryPool,
+    pool_128: MemoryPool,
+    pool_256: MemoryPool,
+    pool_512: MemoryPool,
+    pool_1024: MemoryPool,
+    pool_2048: MemoryPool,
 }
 
-impl<'a> MemoryManager<'a> {
+impl MemoryManager {
     pub const fn new(
-        slice_64: &'a [AtomicUsize],
+        slice_64: *mut AtomicUsize,
         capacity_64: usize,
-        slice_128: &'a [AtomicUsize],
+        slice_128: *mut AtomicUsize,
         capacity_128: usize,
-        slice_256: &'a [AtomicUsize],
+        slice_256: *mut AtomicUsize,
         capacity_256: usize,
-        slice_512: &'a [AtomicUsize],
+        slice_512: *mut AtomicUsize,
         capacity_512: usize,
-        slice_1024: &'a [AtomicUsize],
+        slice_1024: *mut AtomicUsize,
         capacity_1024: usize,
-        slice_2048: &'a [AtomicUsize],
+        slice_2048: *mut AtomicUsize,
         capacity_2048: usize,
-    ) -> MemoryManager<'a> {
-        return MemoryManager::<'a> {
+    ) -> MemoryManager {
+        return MemoryManager{
             pool_64: MemoryPool::new(64, slice_64, capacity_64),
             pool_128: MemoryPool::new(128, slice_128, capacity_128),
             pool_256: MemoryPool::new(256, slice_256, capacity_256),
@@ -40,7 +40,7 @@ impl<'a> MemoryManager<'a> {
 }
 
 // This function is a super duper bad idea
-impl<'a> MemoryManager<'a> {
+impl MemoryManager {
     // unsafe fn clear(&self){
     //         self.pool_64.clear();
     //         self.pool_128.clear();
@@ -136,7 +136,7 @@ impl<'a> MemoryManager<'a> {
     }
 }
 
-unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
+unsafe impl GlobalAlloc for MemoryManager {
     #[inline(always)]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // All allocations are aligned at their size boundary - so we just need the greater of the two.

@@ -3,15 +3,60 @@ use core::num::NonZeroUsize;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::Ordering;
+use core::marker::PhantomData;
+
+
+
+// #[allow(dead_code)]
+// #[allow(unions_with_drop_fields)]
+// pub union Swap<T, U>
+// where
+//     T: Sized,
+// {
+//     base: T,
+//     other: U,
+// }
+// // #[allow(dead_code)]
+// impl<T, U> Swap<T, U>
+// where
+//     T: Sized,
+// {
+//     pub const unsafe fn get(value: T) -> U {
+//         return Swap { base: value }.other;
+//     }
+// }
+
+struct Unique<T> {
+    ptr: *const T,              // *const for variance
+    _marker: PhantomData<T>,    // For the drop checker
+}
+
+// Deriving Send and Sync is safe because we are the Unique owners
+// of this data. It's like Unique<T> is "just" T.
+unsafe impl<T: Send> Send for Unique<T> {}
+unsafe impl<T: Sync> Sync for Unique<T> {}
+
+impl<T> Unique<T> {
+    pub const fn new(ptr: *mut T) -> Self {
+        Unique { ptr: ptr, _marker: PhantomData }
+    }
+
+    pub fn as_ptr(&self) -> *mut T {
+        self.ptr as *mut T
+    }
+}
+
 
 /// A MPMC Queue based on Dmitry Vyukov's queue.  
 /// However, there is a slight modification where head and tail can be locked, as my implementation of Dmitry's queue failed some tests under peak contention  - and I've opted for a more conservative queue
 pub const QUEUE_NULL: usize = 0;
 #[repr(C)]
-pub struct Queue<'a> {
+pub struct Queue {
     _cache_pad_0: [u8; 64],
-    buffer: &'a [AtomicUsize],
+    // buffer: &'a [AtomicUsize],
+    buffer : Unique<AtomicUsize>,
     // buffer_ptr : *const AtomicUsize,
+    capacity: u32,
     buffer_capacity_mask: u32,
     _cache_pad_1: [u8; 64],
     head: IndexSpinlock,
@@ -20,36 +65,20 @@ pub struct Queue<'a> {
     _cache_pad_3: [u8; 64],
 }
 
-// #[allow(dead_code)]
-#[allow(unions_with_drop_fields)]
-pub union Swap<T, U>
-where
-    T: Sized,
-{
-    base: T,
-    other: U,
-}
-// #[allow(dead_code)]
-impl<T, U> Swap<T, U>
-where
-    T: Sized,
-{
-    pub const unsafe fn get(value: T) -> U {
-        return Swap { base: value }.other;
-    }
-}
 
-impl<'a> Queue<'a> {
+
+impl Queue {
     // const CAPACITY_MASK : u32 = CAPACITY as u32 - 1;
 
-    pub const fn new(slice: &'a [AtomicUsize], capacity: usize) -> Queue<'a> {
+    pub const fn new(slice: *mut AtomicUsize, capacity: usize) -> Queue {
         //pub const fn new(buffer_ptr : *const usize, capacity : usize)->Queue{
 
-        return Queue::<'a> {
+        return Queue {
             head: IndexSpinlock::new(0),
             tail: IndexSpinlock::new(0),
-            buffer: slice,
+            buffer: Unique::new(slice),
             // buffer_ptr : slice.as_ptr() as *const AtomicUsize,
+            capacity : capacity as u32,
             buffer_capacity_mask: capacity as u32 - 1,
             _cache_pad_0: [0; 64],
             _cache_pad_1: [0; 64],
@@ -60,8 +89,10 @@ impl<'a> Queue<'a> {
     pub fn clear(&self) {
         let mut tail = self.tail.lock();
         let mut head = self.head.lock();
-        for i in 0..self.buffer.len() {
-            self.buffer[i].store(0, Ordering::Relaxed);
+        for i in 0..self.capacity {
+            unsafe{
+            self.buffer.as_ptr().offset(i as isize).as_ref().unwrap().store(QUEUE_NULL, Ordering::Relaxed);
+            }
         }
         tail.write(0);
         head.write(0);
@@ -74,7 +105,7 @@ impl<'a> Queue<'a> {
         let mut tail = self.tail.lock();
         let tail_value = tail.read();
 
-        let storage = unsafe { self.buffer.get_unchecked(tail_value as usize) }; //self.get_storage(tail_value as usize);
+        let storage = unsafe { self.buffer.as_ptr().offset(tail_value as isize).as_ref().unwrap()}; //self.get_storage(tail_value as usize);
         let stored_value = storage.load(Ordering::Relaxed);
         if stored_value != QUEUE_NULL {
             return false;
@@ -87,7 +118,7 @@ impl<'a> Queue<'a> {
     pub fn dequeue(&self) -> Option<NonZeroUsize> {
         let mut head = self.head.lock();
         let head_value = head.read();
-        let storage = unsafe { self.buffer.get_unchecked(head_value as usize) }; //self.get_storage(head_value as usize);
+        let storage = unsafe { self.buffer.as_ptr().offset(head_value as isize).as_ref().unwrap() }; //self.get_storage(head_value as usize);
         let stored_value = storage.load(Ordering::Relaxed);
         if stored_value == QUEUE_NULL {
             return None;
@@ -100,13 +131,15 @@ impl<'a> Queue<'a> {
     }
 }
 
-unsafe impl<'a> Send for Queue<'a> {}
-unsafe impl<'a> Sync for Queue<'a> {}
+unsafe impl Send for Queue {}
+unsafe impl Sync for Queue {}
 
 #[repr(C)]
-pub struct Queue32<'a> {
+pub struct Queue32 {
     _cache_pad_0: [u8; 64],
-    buffer: &'a [AtomicU32],
+    buffer : Unique<AtomicU32>,
+    // buffer_ptr : *const AtomicUsize,
+    capacity: u32,
     // buffer_ptr : *const AtomicUsize,
     buffer_capacity_mask: u32,
     _cache_pad_1: [u8; 64],
@@ -117,16 +150,17 @@ pub struct Queue32<'a> {
 }
 
 pub const QUEUE32_NULL: u32 = 0xFFFFFFFF;
-impl<'a> Queue32<'a> {
+impl Queue32 {
     // const CAPACITY_MASK : u32 = CAPACITY as u32 - 1;
 
-    pub const fn new(slice: &'a [AtomicU32], capacity: usize) -> Queue32<'a> {
+    pub const fn new(slice: *mut AtomicU32, capacity: usize) -> Queue32 {
         //pub const fn new(buffer_ptr : *const usize, capacity : usize)->Queue{
 
-        return Queue32::<'a> {
+        return Queue32{
             head: IndexSpinlock::new(0),
             tail: IndexSpinlock::new(0),
-            buffer: slice,
+            buffer: Unique::new(slice),
+            capacity:capacity as u32,
             // buffer_ptr : slice.as_ptr() as *const AtomicUsize,
             buffer_capacity_mask: capacity as u32 - 1,
             _cache_pad_0: [0; 64],
@@ -138,8 +172,10 @@ impl<'a> Queue32<'a> {
     pub fn clear(&self) {
         let mut tail = self.tail.lock();
         let mut head = self.head.lock();
-        for i in 0..self.buffer.len() {
-            self.buffer[i].store(0, Ordering::Relaxed);
+        for i in 0..self.capacity {
+            unsafe{
+            self.buffer.as_ptr().offset(i as isize).as_ref().unwrap().store(QUEUE32_NULL, Ordering::Relaxed);
+            }
         }
         tail.write(0);
         head.write(0);
@@ -151,7 +187,7 @@ impl<'a> Queue32<'a> {
         let mut tail = self.tail.lock();
         let tail_value = tail.read();
 
-        let storage = unsafe { self.buffer.get_unchecked(tail_value as usize) }; //self.get_storage(tail_value as usize);
+        let storage = unsafe { self.buffer.as_ptr().offset(tail_value as isize).as_ref().unwrap()};//self.get_storage(tail_value as usize);
         let stored_value = storage.load(Ordering::Relaxed);
         if stored_value != QUEUE32_NULL {
             return false;
@@ -164,7 +200,7 @@ impl<'a> Queue32<'a> {
     pub fn dequeue(&self) -> Option<u32> {
         let mut head = self.head.lock();
         let head_value = head.read();
-        let storage = unsafe { self.buffer.get_unchecked(head_value as usize) }; //self.get_storage(head_value as usize);
+        let storage = unsafe { self.buffer.as_ptr().offset(head_value as isize).as_ref().unwrap() }; //self.get_storage(head_value as usize);
         let stored_value = storage.load(Ordering::Relaxed);
         if stored_value == QUEUE32_NULL {
             return None;
@@ -177,8 +213,8 @@ impl<'a> Queue32<'a> {
     }
 }
 
-unsafe impl<'a> Send for Queue32<'a> {}
-unsafe impl<'a> Sync for Queue32<'a> {}
+unsafe impl Send for Queue32 {}
+unsafe impl Sync for Queue32 {}
 
 #[cfg(test)]
 mod test;

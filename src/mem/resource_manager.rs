@@ -31,29 +31,29 @@ impl<T> Unique<T> {
     }
 }
 
-pub struct ResourceManager<'a, T> {
+pub struct ResourceManager<T> {
     // reference_counts: &'a [AtomicU32],
     reference_counts: Unique<AtomicU32>,
     // slots: &'a [AtomicU32],
     slots: Unique<AtomicU32>,
     // data: &'a [MaybeUninit<T>],
     data: Unique<T>,
-    free_queue: Queue32<'a>,
+    free_queue: Queue32,
     high_water_mark: AtomicU32,
     capacity: u32,
 }
 
-impl<'a, T> ResourceManager<'a, T> {
+impl<T> ResourceManager<T> {
     pub const fn new(
         slots: *mut AtomicU32,
         reference_counts: *mut AtomicU32,
-        free_queue: &'a [AtomicU32],
+        free_queue: *mut AtomicU32,
         // data: &'a [MaybeUninit<T>],
         data: *mut T,
         capacity: u32,
-    ) -> ResourceManager<'a, T> {
+    ) -> ResourceManager<T> {
 
-        return ResourceManager::<'a, T> {
+        return ResourceManager::<T> {
             reference_counts: Unique::new(reference_counts),
             slots: Unique::new(slots),
             data: Unique::<T>::new(data),
@@ -140,8 +140,8 @@ impl<'a, T> ResourceManager<'a, T> {
     }
 }
 
-impl<'a, T: Sync> ResourceManager<'a, T> {
-    pub unsafe fn release_reference(&self, reference: &'a T) {
+impl<T: Sync> ResourceManager<T> {
+    pub unsafe fn release_reference(&self, reference: & T) {
         let ptr = reference as *const T;
         let index =
             (ptr as isize - self.data.as_ptr() as isize) / core::mem::size_of::<T>() as isize;
@@ -153,7 +153,7 @@ impl<'a, T: Sync> ResourceManager<'a, T> {
     }
 
     /// Clones a reference, incrementing the reference count.
-    pub unsafe fn clone_reference(&self, reference: &'a T) -> &'a T {
+    pub unsafe fn clone_reference<'a>(&'a self, reference: &'a T) -> &'a T {
         let ptr = reference as *const T;
         let index =
             (ptr as isize - self.data.as_ptr() as isize) / core::mem::size_of::<T>() as isize;
@@ -167,7 +167,7 @@ impl<'a, T: Sync> ResourceManager<'a, T> {
     }
 
     /// Get a reference counted reference to the object based on a handle.  Returns None if the handle points to empty space.
-    pub unsafe fn retain_reference(&self, handle: u64) -> Option<&'a T> {
+    pub unsafe fn retain_reference(& self, handle: u64) -> Option<& T> {
         let index = (handle & INDEX_MASK) as isize;
         let unique = (handle >> 32) as u32;
         self.increment_ref_count(index);

@@ -2,7 +2,7 @@
 mod test {
 
     use crate::mem::memory_manager::MemoryManager;
-    use crate::mem::queue::Swap;
+    // use crate::mem::queue::Swap;
     use crate::sync::index_lock::IndexSpinlock;
     use core::alloc::{GlobalAlloc, Layout};
     use core::sync::atomic::AtomicUsize;
@@ -16,35 +16,35 @@ mod test {
     const MAX_1024: usize = 1024 * 128;
     const MAX_2048: usize = 1024 * 64;
 
-    static BUFFER_64: [AtomicUsize; MAX_64] =
-        unsafe { Swap::<[usize; MAX_64], [AtomicUsize; MAX_64]>::get([0; MAX_64]) };
-    static BUFFER_128: [AtomicUsize; MAX_128] =
-        unsafe { Swap::<[usize; MAX_128], [AtomicUsize; MAX_128]>::get([0; MAX_128]) };
-    static BUFFER_256: [AtomicUsize; MAX_256] =
-        unsafe { Swap::<[usize; MAX_256], [AtomicUsize; MAX_256]>::get([0; MAX_256]) };
-    static BUFFER_512: [AtomicUsize; MAX_512] =
-        unsafe { Swap::<[usize; MAX_512], [AtomicUsize; MAX_512]>::get([0; MAX_512]) };
-    static BUFFER_1024: [AtomicUsize; MAX_1024] =
-        unsafe { Swap::<[usize; MAX_1024], [AtomicUsize; MAX_1024]>::get([0; MAX_1024]) };
-    static BUFFER_2048: [AtomicUsize; MAX_2048] =
-        unsafe { Swap::<[usize; MAX_2048], [AtomicUsize; MAX_2048]>::get([0; MAX_2048]) };
+    static mut BUFFER_64: [usize; MAX_64] =[0; MAX_64];
+        // unsafe { Swap::<[usize; MAX_64], [AtomicUsize; MAX_64]>::get([0; MAX_64]) };
+    static mut BUFFER_128: [usize; MAX_128] =[0; MAX_128];
+        // unsafe { Swap::<[usize; MAX_128], [AtomicUsize; MAX_128]>::get([0; MAX_128]) };
+    static mut BUFFER_256: [usize; MAX_256] =[0; MAX_256];
+        // unsafe { Swap::<[usize; MAX_256], [AtomicUsize; MAX_256]>::get([0; MAX_256]) };
+    static mut BUFFER_512: [usize; MAX_512] =[0; MAX_512];
+        // unsafe { Swap::<[usize; MAX_512], [AtomicUsize; MAX_512]>::get([0; MAX_512]) };
+    static mut BUFFER_1024: [usize; MAX_1024] =[0; MAX_1024];
+        // unsafe { Swap::<[usize; MAX_1024], [AtomicUsize; MAX_1024]>::get([0; MAX_1024]) };
+    static mut BUFFER_2048: [usize; MAX_2048] =[0; MAX_2048];
+        // unsafe { Swap::<[usize; MAX_2048], [AtomicUsize; MAX_2048]>::get([0; MAX_2048]) };
 
     // Note: as a comparison, one can mark this as the global allocator
     // #[global_allocator]
-    static MANAGER: MemoryManager = MemoryManager::new(
-        &BUFFER_64,
+    static MANAGER: MemoryManager = unsafe{MemoryManager::new(
+        & BUFFER_64[0] as *const usize as *mut AtomicUsize,
         MAX_64,
-        &BUFFER_128,
+        & BUFFER_128[0] as *const usize as *mut AtomicUsize,
         MAX_128,
-        &BUFFER_256,
+        & BUFFER_256[0] as *const usize as *mut AtomicUsize,
         MAX_256,
-        &BUFFER_512,
+        & BUFFER_512[0] as *const usize as *mut AtomicUsize,
         MAX_512,
-        &BUFFER_1024,
+        & BUFFER_1024[0] as *const usize as *mut AtomicUsize,
         MAX_1024,
-        &BUFFER_2048,
+        & BUFFER_2048[0] as *const usize as *mut AtomicUsize,
         MAX_2048,
-    );
+    )};
     static LOCK: IndexSpinlock = IndexSpinlock::new(0);
 
     #[test]

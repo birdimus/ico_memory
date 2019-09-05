@@ -1,15 +1,15 @@
 
 use crate::mem::queue::Queue;
-use crate::mem::queue::Swap;
+// use crate::mem::queue::Swap;
 use crate::sync::index_lock::IndexSpinlock;
 use core::num::NonZeroUsize;
 use core::sync::atomic::AtomicUsize;
 use std::thread;
 use std::time::Instant;
 
-static BUFFER: [AtomicUsize; 4096] =
-    unsafe { Swap::<[usize; 4096], [AtomicUsize; 4096]>::get([0; 4096]) };
-static QUEUE: Queue = Queue::new(&BUFFER, 4096);
+static mut BUFFER: [usize; 4096] =[0; 4096];
+    // unsafe { Swap::<[usize; 4096], [AtomicUsize; 4096]>::get([0; 4096]) };
+static QUEUE: Queue = unsafe{Queue::new(& BUFFER[0] as *const usize as *mut AtomicUsize, 4096)};
 static LOCK: IndexSpinlock = IndexSpinlock::new(0);
 #[test]
 fn mpmc() {
@@ -23,9 +23,8 @@ fn mpmc() {
 
 #[test]
 fn mpmc_local() {
-    let buffer_local: [AtomicUsize; 4096] =
-        unsafe { Swap::<[usize; 4096], [AtomicUsize; 4096]>::get([0; 4096]) };
-    let queue_local = Queue::new(&buffer_local, 4096);
+    let mut buffer_local: [usize; 4096] =[0; 4096];
+    let queue_local = Queue::new(&mut buffer_local[0] as *mut usize as *mut AtomicUsize, 4096);
 
     for i in 0..4096 {
         queue_local.enqueue(NonZeroUsize::new(i + 1).unwrap());
@@ -34,9 +33,8 @@ fn mpmc_local() {
 
 #[test]
 fn mpmc_dequeue() {
-    let buffer_local: [AtomicUsize; 4096] =
-        unsafe { Swap::<[usize; 4096], [AtomicUsize; 4096]>::get([0; 4096]) };
-    let m = Queue::new(&buffer_local, 4096);
+    let mut buffer_local: [usize; 4096] =[0; 4096];
+    let m = Queue::new(&mut buffer_local[0] as *mut usize as *mut AtomicUsize, 4096);
     for j in 0..20 {
         for i in 0..4096 {
             assert_eq!(m.enqueue(NonZeroUsize::new(i + 1).unwrap()), true);
@@ -49,9 +47,8 @@ fn mpmc_dequeue() {
 
 #[test]
 fn mpmc_enqueue_dequeue() {
-    let buffer_local: [AtomicUsize; 4096] =
-        unsafe { Swap::<[usize; 4096], [AtomicUsize; 4096]>::get([0; 4096]) };
-    let m = Queue::new(&buffer_local, 4096);
+    let mut buffer_local: [usize; 4096] =[0; 4096];
+    let m = Queue::new(&mut buffer_local[0] as *mut usize as *mut AtomicUsize, 4096);
     for j in 0..20 {
         for i in 0..4096 {
             assert_eq!(m.enqueue(NonZeroUsize::new(i + 1).unwrap()), true);
@@ -62,9 +59,9 @@ fn mpmc_enqueue_dequeue() {
 
 #[test]
 fn mpmc_enqueue2_dequeue_wrap() {
-    let buffer_local: [AtomicUsize; 4096] =
-        unsafe { Swap::<[usize; 4096], [AtomicUsize; 4096]>::get([0; 4096]) };
-    let m = Queue::new(&buffer_local, 4096);
+    let mut buffer_local: [usize; 4096] =[0; 4096];
+        // unsafe { Swap::<[usize; 4096], [AtomicUsize; 4096]>::get([0; 4096]) };
+    let m = Queue::new(unsafe{&buffer_local[0] as *const usize as *mut AtomicUsize}, 4096);
     for j in 0..20 {
         for i in 0..4096 {
             m.enqueue(NonZeroUsize::new(i + 1).unwrap());
