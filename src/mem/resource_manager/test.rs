@@ -9,23 +9,20 @@ mod test {
 
     static QUEUE_BUFFER: [AtomicU32; 1024] =
         unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([QUEUE32_NULL; 1024]) };
-    static SLOT_BUFFER: [AtomicU32; 1024] =
-        unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([0; 1024]) };
-    static COUNT_BUFFER: [AtomicU32; 1024] =
-        unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([0; 1024]) };
+    static mut SLOT_BUFFER: [u32; 1024] =[0; 1024];
+        // unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([0; 1024]) };
+    static mut COUNT_BUFFER: [u32; 1024] =[0; 1024];
+        // unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([0; 1024]) };
 
     //This MUST be mutable.
-    static mut DATA_BUFFER: [MaybeUninit<Simple>; 1024] =
-        unsafe { Swap::<[u64; 1024], [MaybeUninit<Simple>; 1024]>::get([0; 1024]) };
-
-
-
+    static mut RAW_DATA_BUFFER: [u8; 1024 * std::mem::size_of::<Simple>()] =[0; 1024 * std::mem::size_of::<Simple>()];
+    
     static MANAGER: ResourceManager<Simple> = unsafe {
         ResourceManager::new(
-            &SLOT_BUFFER,
-            &COUNT_BUFFER,
+            unsafe{&SLOT_BUFFER[0] as *const u32 as *mut AtomicU32},
+            unsafe{&COUNT_BUFFER[0] as *const u32 as *mut AtomicU32},
             &QUEUE_BUFFER,
-            &DATA_BUFFER,
+            unsafe{&RAW_DATA_BUFFER[0] as *const u8 as *mut Simple},
             1024,
         )
     };
