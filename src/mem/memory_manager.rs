@@ -14,7 +14,7 @@ pub struct MemoryManager {
 }
 
 impl MemoryManager {
-    pub const fn new(
+    pub const unsafe fn from_static(
         slice_64: *mut AtomicUsize,
         capacity_64: usize,
         slice_128: *mut AtomicUsize,
@@ -29,12 +29,12 @@ impl MemoryManager {
         capacity_2048: usize,
     ) -> MemoryManager {
         return MemoryManager{
-            pool_64: MemoryPool::new(64, slice_64, capacity_64),
-            pool_128: MemoryPool::new(128, slice_128, capacity_128),
-            pool_256: MemoryPool::new(256, slice_256, capacity_256),
-            pool_512: MemoryPool::new(512, slice_512, capacity_512),
-            pool_1024: MemoryPool::new(1024, slice_1024, capacity_1024),
-            pool_2048: MemoryPool::new(2048, slice_2048, capacity_2048),
+            pool_64: MemoryPool::from_static(64, slice_64, capacity_64),
+            pool_128: MemoryPool::from_static(128, slice_128, capacity_128),
+            pool_256: MemoryPool::from_static(256, slice_256, capacity_256),
+            pool_512: MemoryPool::from_static(512, slice_512, capacity_512),
+            pool_1024: MemoryPool::from_static(1024, slice_1024, capacity_1024),
+            pool_2048: MemoryPool::from_static(2048, slice_2048, capacity_2048),
         };
     }
 }

@@ -31,7 +31,7 @@ mod test {
 
     // Note: as a comparison, one can mark this as the global allocator
     // #[global_allocator]
-    static MANAGER: MemoryManager = unsafe{MemoryManager::new(
+    static MANAGER: MemoryManager = unsafe{MemoryManager::from_static(
         & BUFFER_64[0] as *const usize as *mut AtomicUsize,
         MAX_64,
         & BUFFER_128[0] as *const usize as *mut AtomicUsize,

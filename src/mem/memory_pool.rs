@@ -112,7 +112,7 @@ pub struct MemoryPool {
 // }
 
 impl<'a> MemoryPool {
-    pub const fn new(
+    pub const unsafe fn from_static(
         block_size: usize,
         //block_count: usize,
         slice: *mut AtomicUsize,
@@ -124,12 +124,12 @@ impl<'a> MemoryPool {
         // assert!(capacity >= MAX_CHUNKS);
         return MemoryPool {
             memory_pool: BaseMemoryPool::new(block_size, capacity >> MAX_CHUNKS_POT),
-            free_queue: Queue::new(slice, capacity),
+            free_queue: Queue::from_static(slice, capacity),
         };
     }
 
     // #[inline(always)]
-    pub fn allocate(&self) -> *mut u8 {
+    pub unsafe fn allocate(&self) -> *mut u8 {
         //dequeue - if dequeue fails
         let result = self.free_queue.dequeue();
         match result {

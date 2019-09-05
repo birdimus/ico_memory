@@ -44,10 +44,11 @@ pub struct ResourceManager<T> {
 }
 
 impl<T> ResourceManager<T> {
-    pub const fn new(
+    pub const unsafe fn from_static(
         slots: *mut AtomicU32,
         reference_counts: *mut AtomicU32,
         free_queue: *mut AtomicU32,
+
         // data: &'a [MaybeUninit<T>],
         data: *mut T,
         capacity: u32,
@@ -57,7 +58,7 @@ impl<T> ResourceManager<T> {
             reference_counts: Unique::new(reference_counts),
             slots: Unique::new(slots),
             data: Unique::<T>::new(data),
-            free_queue: Queue32::new(free_queue, capacity as usize),
+            free_queue: Queue32::from_static(free_queue, capacity as usize),
             capacity: capacity,
             high_water_mark: AtomicU32::new(0),
         };

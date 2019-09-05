@@ -70,7 +70,7 @@ pub struct Queue {
 impl Queue {
     // const CAPACITY_MASK : u32 = CAPACITY as u32 - 1;
 
-    pub const fn new(slice: *mut AtomicUsize, capacity: usize) -> Queue {
+    pub const unsafe fn from_static(slice: *mut AtomicUsize, capacity: usize) -> Queue {
         //pub const fn new(buffer_ptr : *const usize, capacity : usize)->Queue{
 
         return Queue {
@@ -153,7 +153,7 @@ pub const QUEUE32_NULL: u32 = 0xFFFFFFFF;
 impl Queue32 {
     // const CAPACITY_MASK : u32 = CAPACITY as u32 - 1;
 
-    pub const fn new(slice: *mut AtomicU32, capacity: usize) -> Queue32 {
+    pub const unsafe fn from_static(slice: *mut AtomicU32, capacity: usize) -> Queue32 {
         //pub const fn new(buffer_ptr : *const usize, capacity : usize)->Queue{
 
         return Queue32{
