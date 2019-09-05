@@ -48,7 +48,42 @@ fn init() {
         }
         
     }
-    // assert_eq!(MANAGER.retain(0).is_some(),false) ;
+
+}
+
+#[test]
+fn retain_clone_release() {
+    let l = LOCK.lock();
+    for k in 0..65535{
+        let mut t : Vec<u64> = Vec::new();
+        let mut q : Vec<&Simple> = Vec::new();
+        for i in 0..16{
+            let tmp = MANAGER.retain(Simple{data:i}).unwrap();
+            t.push(tmp);
+            unsafe{
+                q.push(MANAGER.retain_reference(tmp).unwrap());
+            }
+        }
+
+        for i in 0..16{
+            unsafe{
+                
+            q.push(MANAGER.clone_reference(q[i]));
+            }
+        }
+        for i in 0..32{
+            assert_eq!(q[i].data, i as u64 %16);
+        }
+        for i in 0..16{
+
+            assert_eq!(MANAGER.release(t.pop().unwrap()), true, "{}", i);
+            unsafe{
+                MANAGER.release_reference(q.pop().unwrap());
+                MANAGER.release_reference(q.pop().unwrap());
+            }
+        }
+        
+    }
 
 }
 

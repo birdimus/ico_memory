@@ -67,7 +67,7 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 		let ptr = reference as *const T;
 		let index = ((ptr as isize - self.data.as_ptr() as isize)/core::mem::size_of::<T>() as isize);
 		if index < 0 || index >= self.capacity as isize {
-			panic!("Releasing an object we don't own!!!!");
+			// panic!("Releasing an object we don't own!!!!");
 		}
 
 		self.decrement_ref_count(index as usize);
@@ -78,7 +78,7 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 		let ptr = reference as *const T;
 		let index = ((ptr as isize - self.data.as_ptr() as isize)/core::mem::size_of::<T>() as isize) ;
 		if index < 0 || index >= self.capacity as isize {
-			panic!("cloning an object we don't own!!!!");
+			// panic!("cloning an object we don't own!!!!");
 		}
 		//Since we already have one, it's safe to get another.
 		self.increment_ref_count(index as usize);
@@ -87,7 +87,7 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 	}
 
 	/// Get a reference counted reference to the object based on a handle.  Returns None if the handle points to empty space.
-	pub unsafe fn get_reference(&self, handle : u64) ->Option<&'a T>{
+	pub unsafe fn retain_reference(&self, handle : u64) ->Option<&'a T>{
 		let index = (handle & INDEX_MASK) as usize;
 		let unique = (handle >> 32) as u32;
 		self.increment_ref_count(index);
@@ -95,10 +95,12 @@ impl<'a, T: Sync> ResourceManager<'a, T>{
 
 		if self.slots[index as usize].load(Ordering::Acquire) != unique{
 			self.decrement_ref_count(index);
+			// println!("none {} {}", index, unique);
 			return None;
 		}
 		else{
 			unsafe{
+				
 			return self.data[index as usize].as_ptr().as_ref().map(|val| val);
 			}
 		}
