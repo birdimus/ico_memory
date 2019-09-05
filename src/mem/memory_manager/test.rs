@@ -6,7 +6,7 @@ mod test {
     use crate::sync::index_lock::IndexSpinlock;
     use core::alloc::{GlobalAlloc, Layout};
     use core::sync::atomic::AtomicUsize;
-    use std::alloc::{alloc, alloc_zeroed, dealloc, realloc};
+    use std::alloc::{alloc_zeroed, dealloc, realloc};
     use std::time::Instant;
 
     const MAX_64: usize = 1024 * 2048;

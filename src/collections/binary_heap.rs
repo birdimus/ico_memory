@@ -1,7 +1,6 @@
-use core::borrow::Borrow;
 use core::cmp::Ordering;
-use core::iter::FusedIterator;
-use core::iter::Iterator;
+// use core::iter::FusedIterator;
+// use core::iter::Iterator;
 use core::mem::MaybeUninit;
 use core::ptr;
 
@@ -66,7 +65,7 @@ impl<T: Ord> BinaryHeap<T> {
     /// Right is 2*i because of 1-indexing.  See CLRS.
     #[inline(always)]
     fn get_left_index(index: u32) -> u32 {
-        return (index << 1);
+        return index << 1;
     }
     #[inline(always)]
     fn get_data(&self, index: u32) -> &T {
@@ -106,7 +105,7 @@ impl<T: Ord> BinaryHeap<T> {
 
     fn heapify(&mut self, index: u32) {
         let mut best_index = BinaryHeap::<T>::get_left_index(index);
-        if (best_index > self.heap_len) {
+        if best_index > self.heap_len {
             return;
         }
 
@@ -114,11 +113,11 @@ impl<T: Ord> BinaryHeap<T> {
         let mut best_data: &T = &self.get_data(best_data_index);
 
         let right_index = BinaryHeap::<T>::get_right_index(index);
-        if (right_index <= self.heap_len) {
+        if right_index <= self.heap_len {
             let right_data_index = self.heap[right_index as usize];
             let right_data: &T = &self.get_data(right_data_index);
 
-            if (right_data < best_data) {
+            if right_data < best_data {
                 best_data = right_data;
                 best_index = right_index;
                 best_data_index = right_data_index
@@ -128,7 +127,7 @@ impl<T: Ord> BinaryHeap<T> {
         let data_index = self.heap[index as usize];
         let data: &T = &self.get_data(data_index);
 
-        if (best_data < data) {
+        if best_data < data {
             self.heap.swap(index as usize, best_index as usize);
             self.heap_index
                 .swap(data_index as usize, best_data_index as usize);
@@ -167,7 +166,7 @@ impl<T: Ord> BinaryHeap<T> {
 
         let mut handle: Handle;
         // If the heap is full, we must keep track of the new indicies we've created
-        if (self.heap_len == prev_heap_len) {
+        if self.heap_len == prev_heap_len {
             // This data will never be moved.
             self.data.push(MaybeUninit::new(item));
             self.heap_len += 1;
@@ -206,11 +205,11 @@ impl<T: Ord> BinaryHeap<T> {
 
     /// O(1) get element in the binary-heap.
     pub fn get(&self, handle: Handle) -> Option<&T> {
-        if (handle.index >= self.heap_index.len() as u32) {
+        if handle.index >= self.heap_index.len() as u32 {
             return None;
         }
         let h = self.heap_index[handle.index as usize];
-        if (h.unique != handle.unique) {
+        if h.unique != handle.unique {
             return None;
         }
         return unsafe { self.data[handle.index as usize].as_ptr().as_ref() };
@@ -218,11 +217,11 @@ impl<T: Ord> BinaryHeap<T> {
 
     /// Replaces the element in the binary heap, and moves it to it's correct position.
     pub fn replace(&mut self, handle: Handle, item: T) -> bool {
-        if (handle.index >= self.heap_index.len() as u32) {
+        if handle.index >= self.heap_index.len() as u32 {
             return false;
         }
         let mut h = self.heap_index[handle.index as usize];
-        if (h.unique != handle.unique) {
+        if h.unique != handle.unique {
             return false;
         }
 
@@ -231,9 +230,9 @@ impl<T: Ord> BinaryHeap<T> {
         self.data[handle.index as usize] = MaybeUninit::new(item);
 
         match ordering {
-            Less => self.sift_up(h.index),
-            Greater => self.heapify(h.index),
-            Equal => {}
+            Ordering::Less => self.sift_up(h.index),
+            Ordering::Greater => self.heapify(h.index),
+            Ordering::Equal => {}
         }
 
         return true;

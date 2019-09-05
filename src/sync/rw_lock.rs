@@ -83,7 +83,7 @@ impl<T> RWSpinLock<T> {
     }
     #[inline]
     pub fn try_read(&self) -> Option<RWSpinReadGuard<T>> {
-        let mut lock_value = self.lock.load(Ordering::Acquire);
+        let lock_value = self.lock.load(Ordering::Acquire);
         if lock_value < RWSpinLock::<T>::WRITE_REQUEST {
             let target = lock_value + 1;
             match self.lock.compare_exchange(

@@ -2,7 +2,6 @@ use crate::mem::memory_pool::MemoryPool;
 use crate::mem::mmap;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::x86_64::*;
-use core::ptr::null_mut;
 use core::sync::atomic::AtomicUsize;
 
 pub struct MemoryManager<'a> {
@@ -165,7 +164,7 @@ unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
 
         let pot_greater: u32 = (allocation_size as u32 - 1).leading_zeros() + 1;
         // MMAP will always return zeroed memory - so let's not re-zero it.
-        if (pot_greater > 22) {
+        if pot_greater > 22 {
             return self.alloc_pot(allocation_size, pot_greater);
         }
 

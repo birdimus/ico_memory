@@ -36,12 +36,12 @@ impl BaseMemoryPool {
 
         // Decompose the atomic value
         let mut remaining_blocks = active_chunk_data & BaseMemoryPool::BLOCK_MASK;
-        let mut chunk_count = (active_chunk_data >> BaseMemoryPool::CHUNK_SHIFT);
+        let mut chunk_count = active_chunk_data >> BaseMemoryPool::CHUNK_SHIFT;
 
         if remaining_blocks == 0 {
             // Make sure we haven't run out of address space.
             if chunk_count >= (BaseMemoryPool::MAX_CHUNKS as u32) {
-                core::panic!("Memory Addresss Failed.");
+                // core::panic!("Memory Addresss Failed.");
                 return ptr::null_mut();
                 // //handle_alloc_error
             }
@@ -51,14 +51,14 @@ impl BaseMemoryPool {
             // println!("mem  {}", mem.memory as usize);
             // Allocation failed.  This must abort.
             if mem.is_null() {
-                core::panic!("Memory Allocation Failed.");
+                // core::panic!("Memory Allocation Failed.");
                 return ptr::null_mut();
                 //process::abort();
                 //
             }
 
             (*active_chunk_lock)[chunk_count as usize] = mem;
-            remaining_blocks = (self.block_count as u32);
+            remaining_blocks = self.block_count as u32;
             chunk_count += 1;
         }
         let new_remaining_blocks = remaining_blocks - 1;
@@ -80,7 +80,7 @@ impl BaseMemoryPool {
             let active_chunk_data = active_chunk_lock.read();
 
             // Decompose the atomic value
-            let mut chunk_count = (active_chunk_data >> BaseMemoryPool::CHUNK_SHIFT);
+            let mut chunk_count = active_chunk_data >> BaseMemoryPool::CHUNK_SHIFT;
             for i in 0..chunk_count {
                 mmap::free_page_aligned(
                     (*active_chunk_lock)[i as usize].memory,
@@ -106,10 +106,10 @@ pub struct MemoryPool<'a> {
     free_queue: Queue<'a>,
 }
 
-const fn is_power_of_two_or_zero(value: usize) -> bool {
-    //fails for 0
-    return (value & (value - 1)) == 0;
-}
+// const fn is_power_of_two_or_zero(value: usize) -> bool {
+//fails for 0
+// return (value & (value - 1)) == 0;
+// }
 
 impl<'a> MemoryPool<'a> {
     pub const fn new(

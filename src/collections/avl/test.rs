@@ -102,7 +102,7 @@ mod test {
             }
         }
     }
-    static mut dropcount: u32 = 0;
+    static mut DROPCOUNT: u32 = 0;
     struct DropTest {
         pub value: u32,
     }
@@ -110,7 +110,7 @@ mod test {
         fn drop(&mut self) {
             // assert_eq!(self.value, 5);
             // println!("drop {}", self.value);
-            unsafe { dropcount += 1 };
+            unsafe { DROPCOUNT += 1 };
             // self.value = 0;
         }
     }
@@ -126,7 +126,7 @@ mod test {
             }
         }
         unsafe {
-            println!("drop count {}", dropcount);
+            println!("drop count {}", DROPCOUNT);
         }
     }
     // #[test]

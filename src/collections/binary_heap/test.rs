@@ -3,7 +3,7 @@ mod test {
 
     use crate::collections::binary_heap::BinaryHeap;
     use crate::collections::binary_heap::Handle;
-    use std::time::Instant;
+    // use std::time::Instant;
 
     #[test]
     fn insert() {
@@ -12,6 +12,7 @@ mod test {
         for i in 0..100 {
             let h = b.push(i);
             assert_eq!(b.get(h).unwrap(), &i);
+            assert_eq!(b.len(), i as u32 + 1);
         }
 
         assert_eq!(b.heap[0], 0xFFFFFFFF);
@@ -21,6 +22,8 @@ mod test {
             }
             assert_eq!(b.heap[1 + i], i as u32);
         }
+
+        b.clear();
     }
 
     #[test]
@@ -86,22 +89,20 @@ mod test {
     fn replace() {
         let mut b: BinaryHeap<i32> = BinaryHeap::new();
 
-        let mut v : Vec<Handle> = Vec::with_capacity(30);
+        let mut v: Vec<Handle> = Vec::with_capacity(30);
         for i in 0..30 {
-            v.push (b.push(i));
+            v.push(b.push(i));
         }
 
         // This resizes keys, some larger some smaller.
         for i in 0..30 {
-            b.replace(v[i], (i as i32%3)*20  );
+            b.replace(v[i], (i as i32 % 3) * 20);
         }
 
         for j in 0..3 {
             for i in 0..10 {
-                    assert_eq!(b.pop().unwrap(), 20*j as i32, "binary heap pop {}", j);
-                
+                assert_eq!(b.pop().unwrap(), 20 * j as i32, "binary heap pop {}", j);
             }
         }
-
     }
 }

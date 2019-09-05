@@ -236,18 +236,18 @@ impl<K: Ord, V> AVLTree<K, V> {
     }
 
     fn transplant(&mut self, from: &mut AVLNode<K, V>, to: *mut AVLNode<K, V>) {
-        if (from.parent.is_null()) {
+        if from.parent.is_null() {
             self.root = to;
         } else {
             let parent_node = unsafe { from.parent.as_mut().unwrap() };
-            if (from as *mut AVLNode<K, V> == parent_node.left) {
+            if from as *mut AVLNode<K, V> == parent_node.left {
                 parent_node.left = to;
             } else {
                 parent_node.right = to;
             }
         }
         let to_node = unsafe { to.as_mut() };
-        if (to_node.is_some()) {
+        if to_node.is_some() {
             to_node.unwrap().parent = from.parent;
         }
     }
@@ -256,7 +256,7 @@ impl<K: Ord, V> AVLTree<K, V> {
         let left_r = left.right;
         left.right = base;
         base.left = left_r;
-        if (!left_r.is_null()) {
+        if !left_r.is_null() {
             unsafe {
                 left_r.as_mut().unwrap().parent = base;
             }
@@ -265,9 +265,9 @@ impl<K: Ord, V> AVLTree<K, V> {
         let grandparent = base.parent;
         base.parent = left;
         left.parent = grandparent;
-        if (!grandparent.is_null()) {
+        if !grandparent.is_null() {
             let gp_node = unsafe { grandparent.as_mut().unwrap() };
-            if (gp_node.left == base) {
+            if gp_node.left == base {
                 gp_node.left = left;
             } else {
                 gp_node.right = left;
@@ -282,7 +282,7 @@ impl<K: Ord, V> AVLTree<K, V> {
         let right_l = right.left;
         right.left = base;
         base.right = right_l;
-        if (!right_l.is_null()) {
+        if !right_l.is_null() {
             unsafe {
                 right_l.as_mut().unwrap().parent = base;
             }
@@ -291,9 +291,9 @@ impl<K: Ord, V> AVLTree<K, V> {
         let grandparent = base.parent;
         base.parent = right;
         right.parent = grandparent;
-        if (!grandparent.is_null()) {
+        if !grandparent.is_null() {
             let gp_node = unsafe { grandparent.as_mut().unwrap() };
-            if (gp_node.left == base) {
+            if gp_node.left == base {
                 gp_node.left = right;
             } else {
                 gp_node.right = right;
@@ -344,7 +344,7 @@ impl<K: Ord, V> AVLTree<K, V> {
 
     fn remove_node(&mut self, node: &mut AVLNode<K, V>) -> Entry<K, V> {
         let mut parent = ptr::null_mut();
-        if (node.left.is_null()) {
+        if node.left.is_null() {
             //since this node has no left children, it could be the min node.
             if self.first == node {
                 match node.successor_mut() {
@@ -355,7 +355,7 @@ impl<K: Ord, V> AVLTree<K, V> {
             parent = node.parent;
             self.transplant(node, node.right);
         //return parent;
-        } else if (node.right.is_null()) {
+        } else if node.right.is_null() {
             if self.last == node {
                 match node.predecessor_mut() {
                     Some(prev) => self.last = prev,
@@ -369,7 +369,7 @@ impl<K: Ord, V> AVLTree<K, V> {
         } else {
             let right_node = unsafe { node.right.as_mut().unwrap() };
             let successor = right_node.min_child_mut(); //the leftmost node
-            if (!successor.right.is_null()) {
+            if !successor.right.is_null() {
                 let s_right = unsafe { successor.right.as_mut().unwrap() };
                 self.transplant(successor, s_right);
             }
@@ -432,7 +432,7 @@ impl<K: Ord, V> AVLTree<K, V> {
         let mut new_node = unsafe { raw_node.as_mut().unwrap() };
         let mut new_node_parent = unsafe { parent.as_mut().unwrap() };
         new_node.parent = parent;
-        if (is_left) {
+        if is_left {
             new_node_parent.left = raw_node;
             let smallest = unsafe { self.first.as_ref().unwrap() };
             let ord = new_node.entry.key.cmp(&smallest.entry.key);

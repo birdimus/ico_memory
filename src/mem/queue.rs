@@ -1,12 +1,12 @@
 use crate::sync::index_lock::IndexSpinlock;
 use core::num::NonZeroUsize;
-use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::AtomicU32;
+use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::Ordering;
 
 /// A MPMC Queue based on Dmitry Vyukov's queue.  
 /// However, there is a slight modification where head and tail can be locked, as my implementation of Dmitry's queue failed some tests under peak contention  - and I've opted for a more conservative queue
-pub const QUEUE_NULL : usize = 0;
+pub const QUEUE_NULL: usize = 0;
 #[repr(C)]
 pub struct Queue<'a> {
     _cache_pad_0: [u8; 64],
@@ -67,7 +67,6 @@ impl<'a> Queue<'a> {
         head.write(0);
     }
 
-
     pub fn enqueue(&self, value: NonZeroUsize) -> bool {
         let v = value.get();
         debug_assert_ne!(v, QUEUE_NULL);
@@ -77,7 +76,7 @@ impl<'a> Queue<'a> {
 
         let storage = unsafe { self.buffer.get_unchecked(tail_value as usize) }; //self.get_storage(tail_value as usize);
         let stored_value = storage.load(Ordering::Relaxed);
-        if (stored_value != QUEUE_NULL) {
+        if stored_value != QUEUE_NULL {
             return false;
         }
         storage.store(v, Ordering::Relaxed);
@@ -90,7 +89,7 @@ impl<'a> Queue<'a> {
         let head_value = head.read();
         let storage = unsafe { self.buffer.get_unchecked(head_value as usize) }; //self.get_storage(head_value as usize);
         let stored_value = storage.load(Ordering::Relaxed);
-        if (stored_value == QUEUE_NULL) {
+        if stored_value == QUEUE_NULL {
             return None;
         }
         storage.store(QUEUE_NULL, Ordering::Relaxed);
@@ -103,7 +102,6 @@ impl<'a> Queue<'a> {
 
 unsafe impl<'a> Send for Queue<'a> {}
 unsafe impl<'a> Sync for Queue<'a> {}
-
 
 #[repr(C)]
 pub struct Queue32<'a> {
@@ -118,8 +116,7 @@ pub struct Queue32<'a> {
     _cache_pad_3: [u8; 64],
 }
 
-
-pub const QUEUE32_NULL : u32 = 0xFFFFFFFF;
+pub const QUEUE32_NULL: u32 = 0xFFFFFFFF;
 impl<'a> Queue32<'a> {
     // const CAPACITY_MASK : u32 = CAPACITY as u32 - 1;
 
@@ -148,7 +145,6 @@ impl<'a> Queue32<'a> {
         head.write(0);
     }
 
-
     pub fn enqueue(&self, value: u32) -> bool {
         debug_assert_ne!(value, QUEUE32_NULL);
 
@@ -157,7 +153,7 @@ impl<'a> Queue32<'a> {
 
         let storage = unsafe { self.buffer.get_unchecked(tail_value as usize) }; //self.get_storage(tail_value as usize);
         let stored_value = storage.load(Ordering::Relaxed);
-        if (stored_value != QUEUE32_NULL) {
+        if stored_value != QUEUE32_NULL {
             return false;
         }
         storage.store(value, Ordering::Relaxed);
@@ -170,7 +166,7 @@ impl<'a> Queue32<'a> {
         let head_value = head.read();
         let storage = unsafe { self.buffer.get_unchecked(head_value as usize) }; //self.get_storage(head_value as usize);
         let stored_value = storage.load(Ordering::Relaxed);
-        if (stored_value == QUEUE32_NULL) {
+        if stored_value == QUEUE32_NULL {
             return None;
         }
         storage.store(QUEUE32_NULL, Ordering::Relaxed);
@@ -183,7 +179,6 @@ impl<'a> Queue32<'a> {
 
 unsafe impl<'a> Send for Queue32<'a> {}
 unsafe impl<'a> Sync for Queue32<'a> {}
-
 
 #[cfg(test)]
 mod test;

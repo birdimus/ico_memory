@@ -6,10 +6,10 @@ mod test {
     use crate::sync::index_lock::IndexSpinlock;
     use core::sync::atomic::AtomicUsize;
 
-    static BUFFER: [AtomicUsize; 1024 * 2048] =
-        unsafe { Swap::<[usize; 1024 * 2048], [AtomicUsize; 1024 * 2048]>::get([0; 1024 * 2048]) };
-    static POOL: MemoryPool = MemoryPool::new(64, &BUFFER, 1024 * 2048);
-    static LOCK: IndexSpinlock = IndexSpinlock::new(0);
+    // static BUFFER: [AtomicUsize; 1024 * 2048] =
+    // unsafe { Swap::<[usize; 1024 * 2048], [AtomicUsize; 1024 * 2048]>::get([0; 1024 * 2048]) };
+    // static POOL: MemoryPool = MemoryPool::new(64, &BUFFER, 1024 * 2048);
+    // static LOCK: IndexSpinlock = IndexSpinlock::new(0);
 
     #[test]
     fn alloc() {

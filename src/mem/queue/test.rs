@@ -1,10 +1,9 @@
-use super::*;
+
 use crate::mem::queue::Queue;
 use crate::mem::queue::Swap;
 use crate::sync::index_lock::IndexSpinlock;
 use core::num::NonZeroUsize;
 use core::sync::atomic::AtomicUsize;
-use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
 
@@ -116,7 +115,7 @@ fn mpmc_threads() {
                     //     std::thread::yield_now();
                     //     q = t.dequeue();
                     // }
-                    if (q.is_some()) {
+                    if q.is_some() {
                         data.push(q.unwrap());
                         x += 1;
                     }
@@ -162,7 +161,7 @@ fn mpmc_threads() {
     for i in 0..4096 {
         //if m.dequeue().is_some(){
         let r = QUEUE.dequeue();
-        if (r.is_some()) {
+        if r.is_some() {
             ints[r.unwrap().get() - 1 as usize] += 1;
         }
 
