@@ -1,14 +1,11 @@
 #[cfg(test)]
 mod test {
-    // use crate::mem::queue::Swap;
     use crate::mem::queue::QUEUE32_NULL;
     use crate::mem::resource_manager::ResourceManager;
     use crate::sync::index_lock::IndexSpinlock;
     use core::sync::atomic::AtomicU32;
-    // use std::mem::MaybeUninit;
 
     static mut QUEUE_BUFFER: [u32; 1024] = [QUEUE32_NULL; 1024];
-    // static mut QUEUE_BUFFER_REF : &mut [u32; 1024]  = unsafe{&mut QUEUE_BUFFER};
 
     // unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([QUEUE32_NULL; 1024]) };
     static mut SLOT_BUFFER: [u32; 1024] = [0; 1024];
@@ -19,6 +16,22 @@ mod test {
     //This MUST be mutable.
     static mut RAW_DATA_BUFFER: [u8; 1024 * std::mem::size_of::<Simple>()] =
         [0; 1024 * std::mem::size_of::<Simple>()];
+
+
+    struct StaticRef<T>(*const T);
+
+    impl<T> StaticRef<T> {
+        pub const unsafe fn new(ptr: *const T) -> StaticRef<T> {
+            StaticRef(ptr)
+        } 
+    }
+
+    // impl<T> Deref for StaticRef<T> {
+    //     type Target = T;
+    //     fn deref(&self) -> &T { unsafe { &*self.0 } }
+    // }
+
+
 
     static MANAGER: ResourceManager<Simple> = unsafe {
         ResourceManager::from_static(

@@ -26,7 +26,7 @@ impl<T> Spinlock<T> {
     #[cfg(any(test, feature = "std"))]
     #[inline(always)]
     fn increment_yield_counter(value: u32) -> u32 {
-        if value > 1 {
+        if value > 2 {
             std::thread::yield_now();
             return 0;
         }

@@ -168,6 +168,25 @@ pub const QUEUE32_NULL: u32 = 0xFFFFFFFF;
 impl QueueU32 {
     // const CAPACITY_MASK : u32 = CAPACITY as u32 - 1;
 
+    // #[cfg(any(test, feature = "std"))]
+    // pub fn new(capacity: usize) -> QueueU32 {
+    //     return QueueU32 {
+    //         head: IndexSpinlock::new(0),
+    //         tail: IndexSpinlock::new(0),
+    //         buffer: Unique::new(slice),
+    //         capacity: capacity as u32,
+    //         // buffer_ptr : slice.as_ptr() as *const AtomicUsize,
+    //         buffer_capacity_mask: capacity as u32 - 1,
+    //         _cache_pad_0: [0; 64],
+    //         _cache_pad_1: [0; 64],
+    //         _cache_pad_2: [0; 64],
+    //         _cache_pad_3: [0; 64],
+    //     };
+
+    // }
+    /// This method is a kludge to work around lack of stable const-generics, const unions, etc.  
+    /// It is up to the caller to ensure that the pointer passed in is truly static, and is not mutated externally.
+    /// Capacity must be a non-zero power of two.
     pub const unsafe fn from_static(slice: *mut AtomicU32, capacity: usize) -> QueueU32 {
         //pub const fn new(buffer_ptr : *const usize, capacity : usize)->Queue{
 
