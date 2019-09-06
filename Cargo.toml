@@ -8,7 +8,7 @@ repository = "https://github.com/birdimus/ico_memory"
 readme = "README.md"
 categories = ["no-std", "game-engines"]
 description = "Experimental custom memory manager and handle-based resource manager."
-keywords = ["alloc"]
+keywords = ["alloc", "no-std", "game-engines"]
 
 [dependencies]
 libc = {version ="0.2.61", default-features = false }
