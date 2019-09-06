@@ -27,5 +27,5 @@ opt-level = 3
 panic = "abort"
 
 [features]
-std = []
-default = ["std"]
+#std = []
+#default = ["std"]

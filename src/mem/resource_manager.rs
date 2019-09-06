@@ -1,5 +1,6 @@
 use crate::mem::queue::QueueU32;
 use core::marker::PhantomData;
+use core::ops::Deref;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
 
@@ -85,7 +86,7 @@ impl<T> ResourceManager<T> {
         };
         let previous = ref_count.fetch_sub(1, Ordering::AcqRel);
 
-        // There is no possible way to get another reference if this was the last one.  We must have already incremented the index.
+        // There is no possible way to get another reference if this was the last one.  We MUST have already incremented the unique value.
         if previous == 1 {
             unsafe {
                 // Sledgehammer this into mutable - we've protected it behind an atomic ref count.
@@ -157,9 +158,24 @@ impl<T> ResourceManager<T> {
     }
 }
 
+/// A resource is a simple, non-copyable reference to data.  This should form the basis of resource managerment (retain release).
+pub struct Resource<'a, T: Sync>{
+	reference : &'a T,
+}
+
+impl<'a, T: Sync> Deref for Resource<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        return self.reference;
+    }
+}
+
 impl<T: Sync> ResourceManager<T> {
-    pub unsafe fn release_reference(&self, reference: &T) {
-        let ptr = reference as *const T;
+
+	/// Release a reference previously allocated from the resource manager.
+    pub unsafe fn release_reference(&self, resource: Resource<T>) {
+        let ptr = resource.reference as *const T;
         let index =
             (ptr as isize - self.data.as_ptr() as isize) / core::mem::size_of::<T>() as isize;
         // if index < 0 || index >= self.capacity as isize {
@@ -170,8 +186,8 @@ impl<T: Sync> ResourceManager<T> {
     }
 
     /// Clones a reference, incrementing the reference count.
-    pub unsafe fn clone_reference<'a>(&'a self, reference: &'a T) -> &'a T {
-        let ptr = reference as *const T;
+    pub unsafe fn clone_reference<'a>(&'a self, resource: &Resource<'a, T>) -> Resource<'a, T> {
+        let ptr = resource.reference as *const T;
         let index =
             (ptr as isize - self.data.as_ptr() as isize) / core::mem::size_of::<T>() as isize;
         // if index < 0 || index >= self.capacity as isize {
@@ -180,11 +196,11 @@ impl<T: Sync> ResourceManager<T> {
         //Since we already have one, it's safe to get another.
         self.increment_ref_count(index);
 
-        return reference;
+        return Resource{reference:resource.reference};
     }
 
     /// Get a reference counted reference to the object based on a handle.  Returns None if the handle points to empty space.
-    pub unsafe fn retain_reference(&self, handle: u64) -> Option<&T> {
+    pub unsafe fn retain_reference<'a>(&'a self, handle: u64) -> Option<Resource<'a, T>> {
         let index = (handle & INDEX_MASK) as isize;
         let unique = (handle >> 32) as u32;
         self.increment_ref_count(index);
@@ -194,7 +210,7 @@ impl<T: Sync> ResourceManager<T> {
             // println!("none {} {}", index, unique);
             return None;
         } else {
-            return self.data.as_ptr().offset(index).as_ref().map(|val| val);
+            return self.data.as_ptr().offset(index).as_ref().map(|val| Resource{reference:val});
         }
     }
 }
