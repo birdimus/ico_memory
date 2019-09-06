@@ -1,5 +1,5 @@
 use crate::mem::mmap;
-use crate::mem::queue::Queue;
+use crate::mem::queue::QueueUsize;
 use crate::sync::index_lock::Spinlock;
 use core::num::NonZeroUsize;
 use core::ptr;
@@ -80,7 +80,7 @@ impl BaseMemoryPool {
             let active_chunk_data = active_chunk_lock.read();
 
             // Decompose the atomic value
-            let mut chunk_count = active_chunk_data >> BaseMemoryPool::CHUNK_SHIFT;
+            let chunk_count = active_chunk_data >> BaseMemoryPool::CHUNK_SHIFT;
             for i in 0..chunk_count {
                 mmap::free_page_aligned(
                     (*active_chunk_lock)[i as usize].memory,
@@ -103,7 +103,7 @@ impl Drop for BaseMemoryPool {
 
 pub struct MemoryPool {
     memory_pool: BaseMemoryPool,
-    free_queue: Queue,
+    free_queue: QueueUsize,
 }
 
 // const fn is_power_of_two_or_zero(value: usize) -> bool {
@@ -124,7 +124,7 @@ impl<'a> MemoryPool {
         // assert!(capacity >= MAX_CHUNKS);
         return MemoryPool {
             memory_pool: BaseMemoryPool::new(block_size, capacity >> MAX_CHUNKS_POT),
-            free_queue: Queue::from_static(slice, capacity),
+            free_queue: QueueUsize::from_static(slice, capacity),
         };
     }
 

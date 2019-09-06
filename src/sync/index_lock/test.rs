@@ -16,7 +16,7 @@ mod test {
         {
             let mut children = vec![];
 
-            for i in 0..thread_count {
+            for _j in 0..thread_count {
                 let p = index_lock.clone();
                 // Spin up another thread
                 children.push(thread::spawn(move || {

@@ -16,49 +16,51 @@ mod test {
     const MAX_1024: usize = 1024 * 128;
     const MAX_2048: usize = 1024 * 64;
 
-    static mut BUFFER_64: [usize; MAX_64] =[0; MAX_64];
-        // unsafe { Swap::<[usize; MAX_64], [AtomicUsize; MAX_64]>::get([0; MAX_64]) };
-    static mut BUFFER_128: [usize; MAX_128] =[0; MAX_128];
-        // unsafe { Swap::<[usize; MAX_128], [AtomicUsize; MAX_128]>::get([0; MAX_128]) };
-    static mut BUFFER_256: [usize; MAX_256] =[0; MAX_256];
-        // unsafe { Swap::<[usize; MAX_256], [AtomicUsize; MAX_256]>::get([0; MAX_256]) };
-    static mut BUFFER_512: [usize; MAX_512] =[0; MAX_512];
-        // unsafe { Swap::<[usize; MAX_512], [AtomicUsize; MAX_512]>::get([0; MAX_512]) };
-    static mut BUFFER_1024: [usize; MAX_1024] =[0; MAX_1024];
-        // unsafe { Swap::<[usize; MAX_1024], [AtomicUsize; MAX_1024]>::get([0; MAX_1024]) };
-    static mut BUFFER_2048: [usize; MAX_2048] =[0; MAX_2048];
-        // unsafe { Swap::<[usize; MAX_2048], [AtomicUsize; MAX_2048]>::get([0; MAX_2048]) };
+    static mut BUFFER_64: [usize; MAX_64] = [0; MAX_64];
+    // unsafe { Swap::<[usize; MAX_64], [AtomicUsize; MAX_64]>::get([0; MAX_64]) };
+    static mut BUFFER_128: [usize; MAX_128] = [0; MAX_128];
+    // unsafe { Swap::<[usize; MAX_128], [AtomicUsize; MAX_128]>::get([0; MAX_128]) };
+    static mut BUFFER_256: [usize; MAX_256] = [0; MAX_256];
+    // unsafe { Swap::<[usize; MAX_256], [AtomicUsize; MAX_256]>::get([0; MAX_256]) };
+    static mut BUFFER_512: [usize; MAX_512] = [0; MAX_512];
+    // unsafe { Swap::<[usize; MAX_512], [AtomicUsize; MAX_512]>::get([0; MAX_512]) };
+    static mut BUFFER_1024: [usize; MAX_1024] = [0; MAX_1024];
+    // unsafe { Swap::<[usize; MAX_1024], [AtomicUsize; MAX_1024]>::get([0; MAX_1024]) };
+    static mut BUFFER_2048: [usize; MAX_2048] = [0; MAX_2048];
+    // unsafe { Swap::<[usize; MAX_2048], [AtomicUsize; MAX_2048]>::get([0; MAX_2048]) };
 
     // Note: as a comparison, one can mark this as the global allocator
     // #[global_allocator]
-    static MANAGER: MemoryManager = unsafe{MemoryManager::from_static(
-        & BUFFER_64[0] as *const usize as *mut AtomicUsize,
-        MAX_64,
-        & BUFFER_128[0] as *const usize as *mut AtomicUsize,
-        MAX_128,
-        & BUFFER_256[0] as *const usize as *mut AtomicUsize,
-        MAX_256,
-        & BUFFER_512[0] as *const usize as *mut AtomicUsize,
-        MAX_512,
-        & BUFFER_1024[0] as *const usize as *mut AtomicUsize,
-        MAX_1024,
-        & BUFFER_2048[0] as *const usize as *mut AtomicUsize,
-        MAX_2048,
-    )};
+    static MANAGER: MemoryManager = unsafe {
+        MemoryManager::from_static(
+            &BUFFER_64[0] as *const usize as *mut AtomicUsize,
+            MAX_64,
+            &BUFFER_128[0] as *const usize as *mut AtomicUsize,
+            MAX_128,
+            &BUFFER_256[0] as *const usize as *mut AtomicUsize,
+            MAX_256,
+            &BUFFER_512[0] as *const usize as *mut AtomicUsize,
+            MAX_512,
+            &BUFFER_1024[0] as *const usize as *mut AtomicUsize,
+            MAX_1024,
+            &BUFFER_2048[0] as *const usize as *mut AtomicUsize,
+            MAX_2048,
+        )
+    };
     static LOCK: IndexSpinlock = IndexSpinlock::new(0);
 
     #[test]
     fn custom_alloc() {
-        let lock = LOCK.lock();
+        let _lock = LOCK.lock();
         // unsafe{MANAGER.clear();}
         let now = Instant::now();
         let alloc_count = 256;
         let mut cells: Vec<*mut u8> = Vec::with_capacity(alloc_count);
-        for j in 0..2048 {
+        for _j in 0..2048 {
             // letlayout = Layout::from_size_align(64,16).ok().unwrap();
             for i in 0..alloc_count {
                 let layout = Layout::from_size_align(i + 1, 16).ok().unwrap();
-                let mut raw = unsafe { MANAGER.alloc_zeroed(layout) };
+                let raw = unsafe { MANAGER.alloc_zeroed(layout) };
 
                 // println!("raw map {} {} {}", raw as usize, i, j);
                 cells.push(raw);
@@ -87,15 +89,15 @@ mod test {
 
     #[test]
     fn default_alloc() {
-        let lock = LOCK.lock();
+        let _lock = LOCK.lock();
         let now = Instant::now();
         let alloc_count = 256;
         let mut cells: Vec<*mut u8> = Vec::with_capacity(alloc_count);
-        for j in 0..2048 {
+        for _j in 0..2048 {
             // let layout = Layout::from_size_align(64,16).ok().unwrap();
             for i in 0..alloc_count {
                 let layout = Layout::from_size_align(i + 1, 16).ok().unwrap();
-                let mut raw = unsafe { alloc_zeroed(layout) };
+                let raw = unsafe { alloc_zeroed(layout) };
                 // println!("raw map {} {}", raw as usize, i);
                 cells.push(raw);
                 let size = 1; //if layout.size() < 1 {1} else{layout.size()};
@@ -120,12 +122,12 @@ mod test {
 
     #[test]
     fn custom_realloc() {
-        let lock = LOCK.lock();
+        let _lock = LOCK.lock();
         // unsafe{MANAGER.clear();}
         let now = Instant::now();
         let alloc_count = 256;
         // let mut cells: Vec<*mut u8> = Vec::with_capacity(alloc_count);
-        for j in 0..2048 {
+        for _j in 0..2048 {
             let mut layout = Layout::from_size_align(1, 16).ok().unwrap();
             let mut raw = unsafe { MANAGER.alloc_zeroed(layout) };
             unsafe {
@@ -154,12 +156,12 @@ mod test {
     }
     #[test]
     fn default_realloc() {
-        let lock = LOCK.lock();
+        let _lock = LOCK.lock();
         // unsafe{MANAGER.clear();}
         let now = Instant::now();
         let alloc_count = 256;
         // let mut cells: Vec<*mut u8> = Vec::with_capacity(alloc_count);
-        for j in 0..2048 {
+        for _j in 0..2048 {
             let mut layout = Layout::from_size_align(1, 16).ok().unwrap();
             let mut raw = unsafe { alloc_zeroed(layout) };
             unsafe {
@@ -188,12 +190,12 @@ mod test {
     }
     #[test]
     fn custom_realloc_copy() {
-        let lock = LOCK.lock();
+        let _lock = LOCK.lock();
         // unsafe{MANAGER.clear();}
         // let now = Instant::now();
         let alloc_count = 256;
         // let mut cells: Vec<*mut u8> = Vec::with_capacity(alloc_count);
-        for j in 0..2048 {
+        for _j in 0..2048 {
             let mut layout = Layout::from_size_align(1, 16).ok().unwrap();
             let mut raw = unsafe { MANAGER.alloc_zeroed(layout) };
             unsafe {

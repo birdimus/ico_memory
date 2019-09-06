@@ -28,7 +28,7 @@ impl MemoryManager {
         slice_2048: *mut AtomicUsize,
         capacity_2048: usize,
     ) -> MemoryManager {
-        return MemoryManager{
+        return MemoryManager {
             pool_64: MemoryPool::from_static(64, slice_64, capacity_64),
             pool_128: MemoryPool::from_static(128, slice_128, capacity_128),
             pool_256: MemoryPool::from_static(256, slice_256, capacity_256),
@@ -168,7 +168,7 @@ unsafe impl GlobalAlloc for MemoryManager {
             return self.alloc_pot(allocation_size, pot_greater);
         }
 
-        let mut new = self.alloc_pot(allocation_size, pot_greater);
+        let new = self.alloc_pot(allocation_size, pot_greater);
         let mut dst = new as *mut __m128i;
         let mut s = layout.size() as isize;
         while s > 0 {
@@ -213,7 +213,7 @@ unsafe impl GlobalAlloc for MemoryManager {
             return ptr;
         }
 
-        let mut new = self.alloc_pot(new_alloc_size, pot_new);
+        let new = self.alloc_pot(new_alloc_size, pot_new);
 
         {
             //Copy from old to new

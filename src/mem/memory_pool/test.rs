@@ -13,38 +13,46 @@ mod test {
 
     #[test]
     fn alloc() {
-    	unsafe{
-        let mut buffer_local: [usize; 4096] =[0; 4096];
+        unsafe {
+            let mut buffer_local: [usize; 4096] = [0; 4096];
             // unsafe { Swap::<[usize; 4096], [AtomicUsize; 4096]>::get([0; 4096]) };
-        let mp = MemoryPool::from_static(64, &mut buffer_local[0] as *mut usize as *mut AtomicUsize, 4096);
-        for i in 0..4096 {
-            assert_ne!(mp.allocate(), core::ptr::null_mut());
+            let mp = MemoryPool::from_static(
+                64,
+                &mut buffer_local[0] as *mut usize as *mut AtomicUsize,
+                4096,
+            );
+            for _i in 0..4096 {
+                assert_ne!(mp.allocate(), core::ptr::null_mut());
+            }
         }
-    	}	
         // assert_eq!(mp.allocate(), core::ptr::null_mut());
     }
 
     #[test]
     fn alloc_free() {
-    	unsafe{
-        let mut buffer_local: [usize; 4096] =[0; 4096];
+        unsafe {
+            let mut buffer_local: [usize; 4096] = [0; 4096];
             // unsafe { Swap::<[usize; 4096], [AtomicUsize; 4096]>::get([0; 4096]) };
-        let mp = MemoryPool::from_static(64, &mut buffer_local[0] as *mut usize as *mut AtomicUsize, 4096);
+            let mp = MemoryPool::from_static(
+                64,
+                &mut buffer_local[0] as *mut usize as *mut AtomicUsize,
+                4096,
+            );
 
-        let mut storage: [*mut u8; 4096] = [core::ptr::null_mut(); 4096];
-        for i in 0..4096 {
-            storage[i] = mp.allocate();
-            assert_ne!(storage[i], core::ptr::null_mut());
-        }
-        // assert_eq!(mp.allocate(), core::ptr::null_mut());
+            let mut storage: [*mut u8; 4096] = [core::ptr::null_mut(); 4096];
+            for i in 0..4096 {
+                storage[i] = mp.allocate();
+                assert_ne!(storage[i], core::ptr::null_mut());
+            }
+            // assert_eq!(mp.allocate(), core::ptr::null_mut());
 
-        for i in 0..4096 {
-            unsafe { mp.deallocate(storage[i]) };
+            for i in 0..4096 {
+                mp.deallocate(storage[i]);
+            }
+            for i in 0..4096 {
+                storage[i] = mp.allocate();
+                assert_ne!(storage[i], core::ptr::null_mut());
+            }
         }
-        for i in 0..4096 {
-            storage[i] = mp.allocate();
-            assert_ne!(storage[i], core::ptr::null_mut());
-        }
-    	}
     }
 }

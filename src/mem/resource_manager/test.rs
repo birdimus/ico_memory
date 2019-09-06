@@ -5,26 +5,27 @@ mod test {
     use crate::mem::resource_manager::ResourceManager;
     use crate::sync::index_lock::IndexSpinlock;
     use core::sync::atomic::AtomicU32;
-    use std::mem::MaybeUninit;
+    // use std::mem::MaybeUninit;
 
-    static mut QUEUE_BUFFER: [u32; 1024] =[QUEUE32_NULL; 1024];
+    static mut QUEUE_BUFFER: [u32; 1024] = [QUEUE32_NULL; 1024];
     // static mut QUEUE_BUFFER_REF : &mut [u32; 1024]  = unsafe{&mut QUEUE_BUFFER};
 
-        // unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([QUEUE32_NULL; 1024]) };
-    static mut SLOT_BUFFER: [u32; 1024] =[0; 1024];
-        // unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([0; 1024]) };
-    static mut COUNT_BUFFER: [u32; 1024] =[0; 1024];
-        // unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([0; 1024]) };
+    // unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([QUEUE32_NULL; 1024]) };
+    static mut SLOT_BUFFER: [u32; 1024] = [0; 1024];
+    // unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([0; 1024]) };
+    static mut COUNT_BUFFER: [u32; 1024] = [0; 1024];
+    // unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([0; 1024]) };
 
     //This MUST be mutable.
-    static mut RAW_DATA_BUFFER: [u8; 1024 * std::mem::size_of::<Simple>()] =[0; 1024 * std::mem::size_of::<Simple>()];
-    
+    static mut RAW_DATA_BUFFER: [u8; 1024 * std::mem::size_of::<Simple>()] =
+        [0; 1024 * std::mem::size_of::<Simple>()];
+
     static MANAGER: ResourceManager<Simple> = unsafe {
         ResourceManager::from_static(
-            unsafe{&SLOT_BUFFER[0] as *const u32 as *mut AtomicU32},
-            unsafe{&COUNT_BUFFER[0] as *const u32 as *mut AtomicU32},
-            unsafe{&QUEUE_BUFFER[0] as *const u32 as *mut AtomicU32},
-            unsafe{&RAW_DATA_BUFFER[0] as *const u8 as *mut Simple},
+            &SLOT_BUFFER[0] as *const u32 as *mut AtomicU32,
+            &COUNT_BUFFER[0] as *const u32 as *mut AtomicU32,
+            &QUEUE_BUFFER[0] as *const u32 as *mut AtomicU32,
+            &RAW_DATA_BUFFER[0] as *const u8 as *mut Simple,
             1024,
         )
     };
@@ -42,8 +43,8 @@ mod test {
 
     #[test]
     fn init() {
-        let l = LOCK.lock();
-        for k in 0..65535 {
+        let _l = LOCK.lock();
+        for _k in 0..65535 {
             let mut t: Vec<u64> = Vec::new();
             for i in 0..16 {
                 t.push(MANAGER.retain(Simple { data: i }).unwrap());
@@ -56,8 +57,8 @@ mod test {
 
     #[test]
     fn retain_clone_release() {
-        let l = LOCK.lock();
-        for k in 0..65535 {
+        let _l = LOCK.lock();
+        for _k in 0..65535 {
             let mut t: Vec<u64> = Vec::new();
             let mut q: Vec<&Simple> = Vec::new();
             for i in 0..16 {
