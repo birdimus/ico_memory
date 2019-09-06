@@ -159,8 +159,8 @@ impl<T> ResourceManager<T> {
 }
 
 /// A resource is a simple, non-copyable reference to data.  This should form the basis of resource managerment (retain release).
-pub struct Resource<'a, T: Sync>{
-	reference : &'a T,
+pub struct Resource<'a, T: Sync> {
+    reference: &'a T,
 }
 
 impl<'a, T: Sync> Deref for Resource<'a, T> {
@@ -172,8 +172,7 @@ impl<'a, T: Sync> Deref for Resource<'a, T> {
 }
 
 impl<T: Sync> ResourceManager<T> {
-
-	/// Release a reference previously allocated from the resource manager.
+    /// Release a reference previously allocated from the resource manager.
     pub unsafe fn release_reference(&self, resource: Resource<T>) {
         let ptr = resource.reference as *const T;
         let index =
@@ -196,7 +195,9 @@ impl<T: Sync> ResourceManager<T> {
         //Since we already have one, it's safe to get another.
         self.increment_ref_count(index);
 
-        return Resource{reference:resource.reference};
+        return Resource {
+            reference: resource.reference,
+        };
     }
 
     /// Get a reference counted reference to the object based on a handle.  Returns None if the handle points to empty space.
@@ -210,7 +211,12 @@ impl<T: Sync> ResourceManager<T> {
             // println!("none {} {}", index, unique);
             return None;
         } else {
-            return self.data.as_ptr().offset(index).as_ref().map(|val| Resource{reference:val});
+            return self
+                .data
+                .as_ptr()
+                .offset(index)
+                .as_ref()
+                .map(|val| Resource { reference: val });
         }
     }
 }

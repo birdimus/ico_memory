@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod test {
     use crate::mem::queue::QUEUE32_NULL;
-    use crate::mem::resource_manager::ResourceManager;
     use crate::mem::resource_manager::Resource;
+    use crate::mem::resource_manager::ResourceManager;
     use crate::sync::index_lock::IndexSpinlock;
     use core::sync::atomic::AtomicU32;
 
@@ -17,9 +17,6 @@ mod test {
     //This MUST be mutable.
     static mut RAW_DATA_BUFFER: [u8; 1024 * std::mem::size_of::<Simple>()] =
         [0; 1024 * std::mem::size_of::<Simple>()];
-
-
-
 
     static MANAGER: ResourceManager<Simple> = unsafe {
         ResourceManager::from_static(
@@ -69,7 +66,7 @@ mod test {
                     q.push(MANAGER.retain_reference(tmp).unwrap());
                 }
             }
-            
+
             for i in 0..16 {
                 unsafe {
                     q.push(MANAGER.clone_reference(&q[i]));
