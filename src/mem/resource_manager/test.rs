@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test {
     use crate::mem::queue::QUEUE32_NULL;
-    use crate::mem::resource_manager::Resource;
+    // use crate::mem::resource_manager::Resource;
     use crate::mem::resource_manager::ResourceManager;
     use crate::sync::index_lock::IndexSpinlock;
     use core::sync::atomic::AtomicU32;
@@ -58,7 +58,7 @@ mod test {
         let _l = LOCK.lock();
         for _k in 0..65535 {
             let mut t: Vec<u64> = Vec::new();
-            let mut q: Vec<Resource<Simple>> = Vec::new();
+            let mut q: Vec<&Simple> = Vec::new();
             for i in 0..16 {
                 let tmp = MANAGER.retain(Simple { data: i }).unwrap();
                 t.push(tmp);
