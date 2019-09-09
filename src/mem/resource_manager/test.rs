@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod test {
-    use crate::mem::queue::QUEUE32_NULL;
+    use crate::mem::QUEUE_U32_NULL;
     // use crate::mem::resource_manager::Resource;
-    use crate::mem::resource_manager::ResourceManager;
-    use crate::sync::index_lock::IndexSpinlock;
+    use crate::mem::ResourceManager;
+    use crate::sync::IndexSpinlock;
     use core::sync::atomic::AtomicU32;
 
-    static mut QUEUE_BUFFER: [u32; 1024] = [QUEUE32_NULL; 1024];
+    static mut QUEUE_BUFFER: [u32; 1024] = [QUEUE_U32_NULL; 1024];
 
     // unsafe { Swap::<[u32; 1024], [AtomicU32; 1024]>::get([QUEUE32_NULL; 1024]) };
     static mut SLOT_BUFFER: [u32; 1024] = [0; 1024];

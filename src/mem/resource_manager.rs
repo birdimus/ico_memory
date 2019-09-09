@@ -1,5 +1,5 @@
-use crate::mem::queue::QueueU32;
-use core::marker::PhantomData;
+use crate::mem::QueueU32;
+use crate::sync::Unique;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
 
@@ -9,28 +9,7 @@ const UNIQUE_OFFSET: u32 = 2; // unique value
 //32 bit index + 1 bit 'in-use' flag + 32 bit unique
 const INDEX_MASK: u64 = (1 << 32) - 1;
 
-struct Unique<T> {
-    ptr: *const T,           // *const for variance
-    _marker: PhantomData<T>, // For the drop checker
-}
 
-// Deriving Send and Sync is safe because we are the Unique owners
-// of this data. It's like Unique<T> is "just" T.
-unsafe impl<T: Send> Send for Unique<T> {}
-unsafe impl<T: Sync> Sync for Unique<T> {}
-
-impl<T> Unique<T> {
-    pub const fn new(ptr: *mut T) -> Self {
-        Unique {
-            ptr: ptr,
-            _marker: PhantomData,
-        }
-    }
-
-    pub fn as_ptr(&self) -> *mut T {
-        self.ptr as *mut T
-    }
-}
 
 pub struct ResourceManager<T> {
     // reference_counts: &'a [AtomicU32],

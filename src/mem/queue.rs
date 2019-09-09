@@ -1,4 +1,4 @@
-use crate::sync::index_lock::IndexSpinlock;
+use crate::sync::IndexSpinlock;
 use core::marker::PhantomData;
 use core::num::NonZeroUsize;
 use core::sync::atomic::AtomicU32;
@@ -164,7 +164,7 @@ pub struct QueueU32 {
     _cache_pad_3: [u8; 64],
 }
 
-pub const QUEUE32_NULL: u32 = 0xFFFFFFFF;
+pub const QUEUE_U32_NULL: u32 = 0xFFFFFFFF;
 impl QueueU32 {
     // const CAPACITY_MASK : u32 = CAPACITY as u32 - 1;
 
@@ -213,7 +213,7 @@ impl QueueU32 {
                     .offset(i as isize)
                     .as_ref()
                     .unwrap()
-                    .store(QUEUE32_NULL, Ordering::Relaxed);
+                    .store(QUEUE_U32_NULL, Ordering::Relaxed);
             }
         }
         tail.write(0);
@@ -221,7 +221,7 @@ impl QueueU32 {
     }
 
     pub fn enqueue(&self, value: u32) -> bool {
-        debug_assert_ne!(value, QUEUE32_NULL);
+        debug_assert_ne!(value, QUEUE_U32_NULL);
 
         let mut tail = self.tail.lock();
         let tail_value = tail.read();
@@ -234,7 +234,7 @@ impl QueueU32 {
                 .unwrap()
         }; //self.get_storage(tail_value as usize);
         let stored_value = storage.load(Ordering::Relaxed);
-        if stored_value != QUEUE32_NULL {
+        if stored_value != QUEUE_U32_NULL {
             return false;
         }
         storage.store(value, Ordering::Relaxed);
@@ -253,10 +253,10 @@ impl QueueU32 {
                 .unwrap()
         }; //self.get_storage(head_value as usize);
         let stored_value = storage.load(Ordering::Relaxed);
-        if stored_value == QUEUE32_NULL {
+        if stored_value == QUEUE_U32_NULL {
             return None;
         }
-        storage.store(QUEUE32_NULL, Ordering::Relaxed);
+        storage.store(QUEUE_U32_NULL, Ordering::Relaxed);
         head.write(head_value.wrapping_add(1) & self.buffer_capacity_mask);
 
         return Some(stored_value);

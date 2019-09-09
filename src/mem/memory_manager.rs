@@ -1,4 +1,4 @@
-use crate::mem::memory_pool::MemoryPool;
+use crate::mem::MemoryPool;
 use crate::mem::mmap;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::x86_64::*;

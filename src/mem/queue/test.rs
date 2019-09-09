@@ -1,6 +1,6 @@
-use crate::mem::queue::QueueUsize;
+use crate::mem::QueueUsize;
 // use crate::mem::queue::Swap;
-use crate::sync::index_lock::IndexSpinlock;
+use crate::sync::IndexSpinlock;
 use core::num::NonZeroUsize;
 use core::sync::atomic::AtomicUsize;
 use std::thread;

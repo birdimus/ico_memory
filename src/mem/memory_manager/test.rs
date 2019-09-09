@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod test {
 
-    use crate::mem::memory_manager::MemoryManager;
+    use crate::mem::MemoryManager;
     // use crate::mem::queue::Swap;
-    use crate::sync::index_lock::IndexSpinlock;
+    use crate::sync::IndexSpinlock;
     use core::alloc::{GlobalAlloc, Layout};
     use core::sync::atomic::AtomicUsize;
     use std::alloc::{alloc_zeroed, dealloc, realloc};

@@ -1,6 +1,6 @@
 use crate::mem::mmap;
-use crate::mem::queue::QueueUsize;
-use crate::sync::index_lock::Spinlock;
+use crate::mem::QueueUsize;
+use crate::sync::Spinlock;
 use core::num::NonZeroUsize;
 use core::ptr;
 use core::sync::atomic::AtomicUsize;
@@ -9,7 +9,7 @@ pub const MAX_CHUNKS_POT: usize = 10;
 pub const MAX_CHUNKS: usize = 1 << MAX_CHUNKS_POT;
 
 struct BaseMemoryPool {
-    active_chunk_remaining_free: Spinlock<[mmap::MapAlloc; 1024]>,
+    active_chunk_remaining_free: Spinlock<[mmap::MapAlloc; MAX_CHUNKS]>,
     block_size: usize,
     block_count: usize,
 }
@@ -17,7 +17,7 @@ impl BaseMemoryPool {
     const MAX_BLOCKS: usize = 65536;
     const BLOCK_MASK: u32 = (BaseMemoryPool::MAX_BLOCKS - 1) as u32;
     const CHUNK_SHIFT: usize = 17;
-    const MAX_CHUNKS: usize = 1024;
+    // const MAX_CHUNKS: usize = 1024;
 
     const fn new(block_size: usize, block_count: usize) -> BaseMemoryPool {
         // assert!(block_size.is_power_of_two());
@@ -25,7 +25,7 @@ impl BaseMemoryPool {
         return BaseMemoryPool {
             block_size: block_size,
             block_count: block_count,
-            active_chunk_remaining_free: Spinlock::new(0, [mmap::MapAlloc::null(); 1024]),
+            active_chunk_remaining_free: Spinlock::new(0, [mmap::MapAlloc::null(); MAX_CHUNKS]),
         };
     }
 
@@ -40,7 +40,7 @@ impl BaseMemoryPool {
 
         if remaining_blocks == 0 {
             // Make sure we haven't run out of address space.
-            if chunk_count >= (BaseMemoryPool::MAX_CHUNKS as u32) {
+            if chunk_count >= (MAX_CHUNKS as u32) {
                 // core::panic!("Memory Addresss Failed.");
                 return ptr::null_mut();
                 // //handle_alloc_error
