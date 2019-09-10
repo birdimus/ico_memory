@@ -8,16 +8,23 @@ use core::ptr;
 #[derive(Copy, Clone, Debug)]
 struct UniqueNext{
 	unique : u32,
-	next : u32, 
+	next : u32,  //this can be used to store flags - and then iterate based on flags (such as 'active')
 }
 
-const INDEX_ACTIVE : u32 = (1<<31);
-const INDEX_NULL : u32 = 0xFFFFFFFF;
+struct Data<T>{
+	unique_next : UniqueNext,
+	data : MaybeUninit<T>,
+}
+
+
+//TODO: consider using flags here to layer objects for linear layer based queries.
+
+const SLOT_ACTIVE : u32 = (1<<31);
+const SLOT_NULL : u32 = !SLOT_ACTIVE;
 const INDEX_MASK : u64 = 0x00000000FFFFFFFF;
 pub struct IndexedDataStore<T>{
-	unique : Vec<UniqueNext>,
-	storage : Vec<MaybeUninit<T>>,
-	//consider a single allocation here
+
+	storage : Vec<Data<T>>,
 	free_stack : u32,
 	active_count : u32,
 }
@@ -32,90 +39,115 @@ impl<T> IndexedDataStore<T>{
 
 	pub fn new() ->IndexedDataStore<T>{
 		return IndexedDataStore{
-			unique : Vec::new(), 
+			// unique : Vec::new(), 
 			storage: Vec::new(),
-			free_stack : INDEX_NULL,
+			free_stack : SLOT_NULL,
+			active_count : 0,
+		};
+	}
+	pub fn with_capacity(capacity : usize) ->IndexedDataStore<T>{
+		return IndexedDataStore{
+			// unique : Vec::new(), 
+			storage: Vec::with_capacity(capacity),
+			free_stack : SLOT_NULL,
 			active_count : 0,
 		};
 	}
 	pub fn high_water_mark(&self)->u32{
 		return self.storage.len() as u32;
 	}
+	pub fn len(&self)->u32{
+		return self.active_count as u32;
+	}
+	pub fn capacity(&self)->u32{
+		return self.storage.capacity() as u32;
+	}
 	pub unsafe fn get_raw(&self, index : u32) ->&T{
-		unsafe{
-			return self.storage[index as usize].as_ptr().as_ref().unwrap();
-		}
+		return self.storage[index as usize].data.as_ptr().as_ref().unwrap();
+		
 	}
 	pub unsafe fn get_raw_mut<'a>(&'a mut self, index : u32) ->&'a mut T{
-		unsafe{
-			return self.storage[index as usize].as_mut_ptr().as_mut().unwrap();
-		}
+		return self.storage[index as usize].data.as_mut_ptr().as_mut().unwrap();
 	}
 	pub fn get(&self, handle : Handle) ->Option<&T>{
 		let idx = (handle.value & INDEX_MASK) as usize;
 		let unique = (handle.value>>32) as u32;
-		let unique_next = self.unique[idx];
-		if unique_next.unique != unique || unique_next.next != INDEX_ACTIVE{
+		let unique_next = self.storage[idx].unique_next;
+		if unique_next.unique != unique || unique_next.next != SLOT_ACTIVE{
 			return None;
 		}
 		unsafe{
-			return self.storage[idx].as_ptr().as_ref();
+			return self.storage[idx].data.as_ptr().as_ref();
 		}
 	}
 	pub fn get_mut<'a>(&'a mut self, handle : Handle) ->Option<&'a mut T>{
 		let idx = (handle.value & INDEX_MASK) as usize;
 		let unique = (handle.value>>32) as u32;
-		let unique_next = self.unique[idx];
-		if unique_next.unique != unique || unique_next.next != INDEX_ACTIVE{
+		let unique_next = self.storage[idx].unique_next;
+		if unique_next.unique != unique || unique_next.next != SLOT_ACTIVE{
 			return None;
 		}
 		unsafe{
-			return self.storage[idx].as_mut_ptr().as_mut();
+			return self.storage[idx].data.as_mut_ptr().as_mut();
 		}
 	}
 	pub fn retain(&mut self, value : T) ->Handle{
-		if self.free_stack != INDEX_NULL{
+
+		if self.free_stack != SLOT_NULL{
 			let result_index = self.free_stack as usize;
-			self.storage[result_index] = MaybeUninit::new(value);
+			self.storage[result_index].data = MaybeUninit::new(value);
 			// self.unique[result_index].unique |= 1;
 
-			let un = self.unique[result_index];
-			self.free_stack = un.next;
-			self.unique[result_index].next = INDEX_ACTIVE;
+			let unique_next = self.storage[result_index].unique_next;
+			self.free_stack = unique_next.next;
+			self.storage[result_index].unique_next.next = SLOT_ACTIVE;
 			
-			let mut result : u64 = un.unique as u64;
+			let mut result : u64 = unique_next.unique as u64;
 			self.active_count +=1;
+			// println!("reuse");
 			return Handle{value:(result<<32) | result_index as u64};
 
 		}
 		else{
 			let result_index = self.storage.len() as u64;
-			self.unique.push(UniqueNext{unique:1, next:INDEX_ACTIVE });
-			self.storage.push(MaybeUninit::new(value));
+			// println!("retain");
+			self.storage.push(
+				Data{
+				data:MaybeUninit::new(value),
+				unique_next:UniqueNext{unique:1, next:SLOT_ACTIVE },
+				}
+				);
 			self.active_count +=1;
 			return Handle{value:(1<<32) | result_index as u64};
 		}
 	}
-	pub fn release(&mut self, handle : Handle){
+	pub fn release(&mut self, handle : Handle) -> Option<T>{
 		let idx = (handle.value & INDEX_MASK) as usize;
 		let unique = (handle.value>>32) as u32;
-		let unique_next = self.unique[idx];
-		if unique_next.unique != unique || unique_next.next != INDEX_ACTIVE{
-			return;
+		let unique_next = self.storage[idx].unique_next;
+
+		if unique_next.unique != unique || unique_next.next != SLOT_ACTIVE{
+			// println!("return failed");
+			return None;
 		}
 
 		//invalidate all reads
-		self.unique[idx].unique += 1;//(self.unique[idx].unique&!1) +2;
+		self.storage[idx].unique_next.unique += 1;//(self.unique[idx].unique&!1) +2;
 		
 		//drop the value
-		unsafe{
-			 ptr::drop_in_place(self.storage[idx].as_mut_ptr());
-		}
+		// unsafe{
+			 // ptr::drop_in_place(self.storage[idx].data.as_mut_ptr());
+		// }
 
 		// add slot back to the stack.
-		self.unique[idx].next = self.free_stack;
+
+		self.storage[idx].unique_next.next = self.free_stack;
 		self.free_stack = idx as u32;
+		 // println!("stack {} {} {}",self.free_stack, self.storage[idx].unique_next.next, self.storage[idx].unique_next.unique);
 		self.active_count -=1;
+		unsafe{
+		return Some(ptr::read(self.storage[idx].data.as_mut_ptr()));
+		}
 	}
 
 	pub fn iter<'a>(&'a self) -> Iter<'a, T> {
@@ -136,16 +168,15 @@ impl<T> IndexedDataStore<T>{
         
     }
 	pub fn clear(&mut self){
-		for i in 0..self.unique.len(){
-			if self.unique[i].next == INDEX_ACTIVE {
+		for i in 0..self.storage.len(){
+			if self.storage[i].unique_next.next == SLOT_ACTIVE {
 				unsafe{
-					ptr::drop_in_place(self.storage[i].as_mut_ptr());
+					ptr::drop_in_place(self.storage[i].data.as_mut_ptr());
 				}
 			}
 		}
-		self.unique.clear();
 		self.storage.clear();
-		self.free_stack = INDEX_NULL;
+		self.free_stack = SLOT_NULL;
 		self.active_count =0;
 	}
 }
@@ -169,10 +200,10 @@ impl<'a, T> Iterator for Iter<'a, T> {
         let mut i = self.index;
         let hwm = self.store.high_water_mark();
         while i < hwm{
-        	if(self.store.unique[i as usize].next == INDEX_ACTIVE){
+        	if self.store.storage[i as usize].unique_next.next == SLOT_ACTIVE {
         		unsafe{
         			let g = self.store.get_raw(i);
-        			self.index = i;
+        			self.index = i+1;
         			self.count -= 1;
         			return Some(g);
         		}
@@ -208,9 +239,9 @@ impl<'a, T> Iterator for IterMut<'a, T> {
         let mut i = self.index;
         let hwm = self.store.high_water_mark();
         while i < hwm{
-        	if(self.store.unique[i as usize].next == INDEX_ACTIVE){
+        	if self.store.storage[i as usize].unique_next.next == SLOT_ACTIVE {
         		
-    			self.index = i;
+    			self.index = i+1;
     			self.count -= 1;
         			// Borrow checker is being picky about this, so smash it.  We know what we are doing
         		unsafe{
@@ -233,3 +264,6 @@ impl<'a, T> ExactSizeIterator for IterMut<'a, T> {
         return self.count as usize;
     }
 }
+
+#[cfg(test)]
+mod test;
