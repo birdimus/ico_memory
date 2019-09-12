@@ -164,7 +164,7 @@ impl<T: Ord> BinaryHeap<T> {
     pub fn push(&mut self, item: T) -> Handle {
         let prev_heap_len = self.data.len() as u32;
 
-        let mut handle: Handle;
+        let handle: Handle;
         // If the heap is full, we must keep track of the new indicies we've created
         if self.heap_len == prev_heap_len {
             // This data will never be moved.
@@ -220,7 +220,7 @@ impl<T: Ord> BinaryHeap<T> {
         if handle.index >= self.heap_index.len() as u32 {
             return false;
         }
-        let mut h = self.heap_index[handle.index as usize];
+        let h = self.heap_index[handle.index as usize];
         if h.unique != handle.unique {
             return false;
         }

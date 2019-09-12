@@ -1,5 +1,5 @@
-#![cfg_attr(not(any(test, feature = "std")), no_std)]
 
+#![cfg_attr(not(any(test, feature = "std")), no_std)]
 pub mod mem;
 pub mod sync;
 

@@ -1,234 +1,232 @@
 use core::mem::MaybeUninit;
-use core::iter::FusedIterator;
-use core::iter::Iterator;
 use core::ptr;
+use core::marker::PhantomData;
+use core::cell::Cell;
 
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-struct UniqueNext{
-	unique : u32,
-	next : u32, 
+pub struct IndexedData<T>{
+	
+	data : MaybeUninit<T>,
+	unique : Cell<u32>,
+	ref_count : Cell<u32>, 
+
+}
+impl<T> IndexedData<T>{
+	fn init(&mut self, value : T){
+		self.data = MaybeUninit::new(value);
+		self.ref_count.set(1);
+		self.unique.set(1);
+	}
+	fn reinit(&mut self, value : T){
+		self.data = MaybeUninit::new(value);
+		self.ref_count.set(1);
+		self.set_initialized();
+	}
+	fn is_initialized(&self)->bool{
+		return (self.unique.get() &1) == 1;
+	}
+	fn increment_unique(&mut self){
+		self.unique.set(self.unique.get() + 2);
+	}
+	fn set_initialized(&mut self){
+		self.unique.set(self.unique.get() | 1);
+	}
+	fn set_uninitialized(&mut self) {
+		self.unique.set(self.unique.get() & !1);
+	}
+	fn is_match(&self, unique : u32) -> bool{
+		return self.unique.get() == unique;
+	}
+}
+const SLOT_NULL : u32 = 0xFFFFFFFF;
+
+pub struct IndexedDataStore<'a, T>{
+	buffer : *mut MaybeUninit<IndexedData<T>>, //definitely not ever thread safe.
+	capacity : u32,
+	high_water_mark : Cell<u32>,
+	free_stack : Cell<u32>,
+	active_count : Cell<u32>,
+	destroyed_count : Cell<u32>,
+	_lifetime : PhantomData<&'a T>,
 }
 
-const INDEX_ACTIVE : u32 = (1<<31);
-const INDEX_NULL : u32 = 0xFFFFFFFF;
-const INDEX_MASK : u64 = 0x00000000FFFFFFFF;
-pub struct IndexedDataStore<T>{
-	unique : Vec<UniqueNext>,
-	storage : Vec<MaybeUninit<T>>,
-	free_stack : u32,
-	active_count : u32,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct Handle{
-	value : u64,//private
-}
-
-impl<T> IndexedDataStore<T>{
-
-	pub fn new() ->IndexedDataStore<T>{
+impl<'a, T> IndexedDataStore<'a, T>{
+	pub const unsafe fn from_raw(data : &'a *mut MaybeUninit<IndexedData<T>>, capacity : u32) ->IndexedDataStore<'a, T>{
 		return IndexedDataStore{
-			unique : Vec::new(), 
-			storage: Vec::new(),
-			free_stack : INDEX_NULL,
-			active_count : 0,
-		};
+
+			buffer:*data,
+			capacity:capacity,
+			high_water_mark:Cell::new(0),
+			free_stack:Cell::new(SLOT_NULL),
+			active_count:Cell::new(0),
+			destroyed_count:Cell::new(0),
+			_lifetime : PhantomData,
+		}
+	}	
+	// unsafe fn get_raw(&'a self, index:u32) ->&'a T{
+	// 	return self.buffer.offset(index as isize).as_ref().unwrap().data.as_ptr().as_ref().unwrap();
+	// }
+
+	unsafe fn get_data(&self, index:u32) ->&mut IndexedData<T>{
+		return 
+			self.buffer.offset(index as isize).as_mut().unwrap().as_mut_ptr().as_mut().unwrap();
 	}
+	unsafe fn decrement_ref_count(& self, index:u32) {
+		let data = self.get_data(index);
+		data.ref_count.set(data.ref_count.get() - 1);
+		if data.ref_count.get() == 0{
+			data.set_uninitialized();
+			ptr::drop_in_place(data.data.as_mut_ptr());
+			data.ref_count.set(self.free_stack.get());
+			self.free_stack.set(index);
+			self.destroyed_count.set(self.destroyed_count.get() - 1);
+		}
+	}
+
+	/// How much of the buffer has ever been used.
 	pub fn high_water_mark(&self)->u32{
-		return self.storage.len() as u32;
+		return self.high_water_mark.get();
 	}
-	pub unsafe fn get_raw(&self, index : u32) ->&T{
-		unsafe{
-			return self.storage[index as usize].as_ptr().as_ref().unwrap();
-		}
+
+	/// How many objects are currently stored and accessible.
+	pub fn active(&self)->u32{
+		return self.active_count.get();
 	}
-	pub unsafe fn get_raw_mut<'a>(&'a mut self, index : u32) ->&'a mut T{
-		unsafe{
-			return self.storage[index as usize].as_mut_ptr().as_mut().unwrap();
-		}
+
+	/// How many objects are currently stored but marked destroyed.
+	pub fn destroyed(&self)->u32{
+		return self.destroyed_count.get();
 	}
-	pub fn get(&self, handle : Handle) ->Option<&T>{
-		let idx = (handle.value & INDEX_MASK) as usize;
-		let unique = (handle.value>>32) as u32;
-		let unique_next = self.unique[idx];
-		if unique_next.unique != unique || unique_next.next != INDEX_ACTIVE{
+
+	/// How much free space.  Capcity - (active + destroyed).
+	pub fn available(&self)->u32{
+		return self.capacity() - self.active() - self.destroyed();
+	}
+
+	/// Total fixed capacity.
+	pub fn capacity(&self)->u32{
+		return self.capacity;
+	}
+
+
+	/// Retain a strong reference.  If no reference exists returns None, otherwise, this increments the reference count and returns the reference.  
+	/// It is up to the user to manually release() the returned reference when they are finished.
+	pub fn retain(&'a self, handle:IndexedHandle)->Option<IndexedRef<T>> {
+		if handle.index >= self.high_water_mark.get(){
 			return None;
 		}
 		unsafe{
-			return self.storage[idx].as_ptr().as_ref();
-		}
+		let data = self.get_data(handle.index);
+		if !data.is_match(handle.unique){return None;}
+		data.ref_count.set(data.ref_count.get() + 1);
+		return Some(IndexedRef{index:handle.index, _phantom:PhantomData,  _lifetime:PhantomData});
+		//return data.data.as_ptr().as_ref();
+		}	
 	}
-	pub fn get_mut<'a>(&'a mut self, handle : Handle) ->Option<&'a mut T>{
-		let idx = (handle.value & INDEX_MASK) as usize;
-		let unique = (handle.value>>32) as u32;
-		let unique_next = self.unique[idx];
-		if unique_next.unique != unique || unique_next.next != INDEX_ACTIVE{
-			return None;
-		}
+	pub fn get(&'a self, reference:&'a IndexedRef<T>)->&'a T {
 		unsafe{
-			return self.storage[idx].as_mut_ptr().as_mut();
+			let data = self.get_data(reference.index);
+			return data.data.as_ptr().as_ref().unwrap();
+			// return self.get_raw(reference.index);
 		}
 	}
-	pub fn retain(&mut self, value : T) ->Handle{
-		if self.free_stack != INDEX_NULL{
-			let result_index = self.free_stack as usize;
-			self.storage[result_index] = MaybeUninit::new(value);
-			// self.unique[result_index].unique |= 1;
 
-			let un = self.unique[result_index];
-			self.free_stack = un.next;
-			self.unique[result_index].next = INDEX_ACTIVE;
-			
-			let mut result : u64 = un.unique as u64;
-			self.active_count +=1;
-			return Handle{value:(result<<32) | result_index as u64};
+	/// Release a strong reference.  This decrements the reference count.
+	pub fn release(&'a self, reference:IndexedRef<T>) {
+		unsafe{
+			self.decrement_ref_count(reference.index);
+			// return Handle{index:reference.index, unique:reference.unique, _phantom:PhantomData};
+		}	
+	}
+	
+	
 
+	pub fn store(&self, value : T) -> IndexedHandle{
+
+		let free = self.free_stack.get();
+		if free != SLOT_NULL{
+			let data = unsafe{self.get_data(free)};
+			self.free_stack.set(data.ref_count.get());
+
+			data.reinit(value);
+
+			let active_count = self.active_count.get();
+			self.active_count.set(active_count + 1);
+			return IndexedHandle{index:free, unique:data.unique.get(), _phantom:PhantomData};
 		}
 		else{
-			let result_index = self.storage.len() as u64;
-			self.unique.push(UniqueNext{unique:1, next:INDEX_ACTIVE });
-			self.storage.push(MaybeUninit::new(value));
-			self.active_count +=1;
-			return Handle{value:(1<<32) | result_index as u64};
+			let hwm = self.high_water_mark.get();
+			if hwm < self.capacity{
+				
+				self.high_water_mark.set(hwm +1);
+				// println!("index {} {}", result_index, self.buffer as usize);
+				
+				let data = unsafe{self.get_data(hwm)};
+				data.init(value);
+				
+
+				let active_count = self.active_count.get();
+				self.active_count.set(active_count + 1);
+				return IndexedHandle{index:hwm, unique:data.unique.get(), _phantom:PhantomData};
+			}
+			else{
+				#[cfg(any(test, feature = "std"))]
+				std::process::abort();
+
+			}
 		}
 	}
-	pub fn release(&mut self, handle : Handle){
-		let idx = (handle.value & INDEX_MASK) as usize;
-		let unique = (handle.value>>32) as u32;
-		let unique_next = self.unique[idx];
-		if unique_next.unique != unique || unique_next.next != INDEX_ACTIVE{
-			return;
+	pub fn free(&self, handle:IndexedHandle)->bool {
+		if handle.index >= self.high_water_mark.get(){
+			return false;
 		}
+		let data = unsafe{self.get_data(handle.index)};
+		if !data.is_match(handle.unique){return false;}
+		data.increment_unique();
 
-		//invalidate all reads
-		self.unique[idx].unique += 1;//(self.unique[idx].unique&!1) +2;
-		
-		//drop the value
+		self.active_count.set(self.active_count.get() - 1);
+		self.destroyed_count.set(self.destroyed_count.get() + 1);
 		unsafe{
-			 ptr::drop_in_place(self.storage[idx].as_mut_ptr());
+			self.decrement_ref_count(handle.index);
 		}
 
-		// add slot back to the stack.
-		self.unique[idx].next = self.free_stack;
-		self.free_stack = idx as u32;
-		self.active_count -=1;
+		return true;
 	}
 
-	pub fn iter<'a>(&'a self) -> Iter<'a, T> {
-        return Iter {
-            store: self,
-            index: 0,
-            count: self.active_count,
-        };
-        
-    }
-    pub fn iter_mut<'a>(&'a mut self) -> IterMut<'a, T> {
-    	let active_count = self.active_count;
-        return IterMut {
-            store: self,
-            index: 0,
-            count: active_count,
-        };
-        
-    }
-	pub fn clear(&mut self){
-		for i in 0..self.unique.len(){
-			if self.unique[i].next == INDEX_ACTIVE {
-				unsafe{
-					ptr::drop_in_place(self.storage[i].as_mut_ptr());
+}
+
+
+impl<'a, T> Drop for IndexedDataStore<'a, T>{
+	fn drop(&mut self){
+		//using CAPACITY here is a big, big error - freeing uninitialized memory
+		for i in 0..self.high_water_mark.get(){
+			unsafe{
+				// let data = self.buffer.offset(i as isize).as_mut().unwrap();
+				let data = self.get_data(i);
+				if data.is_initialized(){
+					ptr::drop_in_place(data.data.as_mut_ptr());
 				}
 			}
 		}
-		self.unique.clear();
-		self.storage.clear();
-		self.free_stack = INDEX_NULL;
-		self.active_count =0;
 	}
 }
 
-impl<T> Drop for IndexedDataStore<T>{
-	fn drop(&mut self){
-		self.clear();
-	}
-}
-pub struct Iter<'a, T> {
-    store : &'a IndexedDataStore<T>,
-    count : u32,
-    index : u32,
-}
-impl<'a, T> Iterator for Iter<'a, T> {
-    type Item = &'a T;
-    fn next(&mut self) -> Option<&'a T> {
-        if self.count == 0 {
-            return None;
-        };
-        let mut i = self.index;
-        let hwm = self.store.high_water_mark();
-        while i < hwm{
-        	if(self.store.unique[i as usize].next == INDEX_ACTIVE){
-        		unsafe{
-        			let g = self.store.get_raw(i);
-        			self.index = i;
-        			self.count -= 1;
-        			return Some(g);
-        		}
-        	}
-        
-        	i+=1;
-        }
-        //This should never happen.
-        return None;
-    }
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        return (self.count as usize, Some(self.count as usize));
-    }
-}
-impl<'a, T> FusedIterator for Iter<'a, T> {}
-impl<'a, T> ExactSizeIterator for Iter<'a, T> {
-    fn len(&self) -> usize {
-        return self.count as usize;
-    }
+pub struct IndexedRef<'a, T>{
+	index : u32, 
+	// unique : u32,
+	_phantom : PhantomData<*mut u8>, //to disable send and sync
+	_lifetime : PhantomData<&'a T>,
 }
 
-pub struct IterMut<'a, T> {
-    store : &'a mut IndexedDataStore<T>,
-    count : u32,
-    index : u32,
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct IndexedHandle{
+	index : u32, 
+	unique : u32,
+	_phantom : PhantomData<*mut u8>, //to disable send and sync
 }
-impl<'a, T> Iterator for IterMut<'a, T> {
-    type Item = &'a mut T;
-    fn next(&mut self) -> Option<&'a mut T> {
-        if self.count == 0 {
-            return None;
-        };
-        let mut i = self.index;
-        let hwm = self.store.high_water_mark();
-        while i < hwm{
-        	if(self.store.unique[i as usize].next == INDEX_ACTIVE){
-        		
-    			self.index = i;
-    			self.count -= 1;
-        			// Borrow checker is being picky about this, so smash it.  We know what we are doing
-        		unsafe{
-        			return (self.store.get_raw_mut(i) as *mut T).as_mut();
-        		}
-        	}
-        
-        	i+=1;
-        }
-        //This should never happen.
-        return None;
-    }
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        return (self.count as usize, Some(self.count as usize));
-    }
-}
-impl<'a, T> FusedIterator for IterMut<'a, T> {}
-impl<'a, T> ExactSizeIterator for IterMut<'a, T> {
-    fn len(&self) -> usize {
-        return self.count as usize;
-    }
-}
+
+
+
+#[cfg(test)]
+mod test;

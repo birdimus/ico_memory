@@ -120,7 +120,7 @@ mod test {
         let mut iter = idx.iter_mut();
         for i in 0..iter.len(){
              // println!("iter {}", i);
-             let mut q = iter.next().unwrap();
+             let q = iter.next().unwrap();
 
              assert_eq!( (q[0]), 2*i as u32 + 1);
         }

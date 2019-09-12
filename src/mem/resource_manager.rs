@@ -9,7 +9,11 @@ const UNIQUE_OFFSET: u32 = 2; // unique value
 //32 bit index + 1 bit 'in-use' flag + 32 bit unique
 const INDEX_MASK: u64 = (1 << 32) - 1;
 
-
+// pub struct Resource<T> {
+// 	data : T,
+// 	ref_count : AtomicU32,
+// 	unique_id : AtomicU32,
+// }
 
 pub struct ResourceManager<T> {
     // reference_counts: &'a [AtomicU32],
@@ -17,7 +21,7 @@ pub struct ResourceManager<T> {
     // slots: &'a [AtomicU32],
     slots: Unique<AtomicU32>,
     // data: &'a [MaybeUninit<T>],
-    data: Unique<T>,
+    data: Unique<T>,  //TODO: consider storing refcount and unique in here to improve cache locality
     free_queue: QueueU32,
     high_water_mark: AtomicU32,
     capacity: u32,
@@ -138,6 +142,7 @@ impl<T> ResourceManager<T> {
 
 /// A resource is a simple, non-copyable reference to data.  This should form the basis of resource managerment (retain release).
 // pub struct Resource<'a, T: Sync> {
+// 	manager: &'a ResourceManager<T>,
 //     reference: &'a T,
 // }
 

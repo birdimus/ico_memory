@@ -102,7 +102,7 @@ impl<T> IndexedDataStore<T>{
 			self.free_stack = unique_next.next;
 			self.storage[result_index].unique_next.next = SLOT_ACTIVE;
 			
-			let mut result : u64 = unique_next.unique as u64;
+			let result : u64 = unique_next.unique as u64;
 			self.active_count +=1;
 			// println!("reuse");
 			return Handle{value:(result<<32) | result_index as u64};
