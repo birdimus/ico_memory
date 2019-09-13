@@ -51,7 +51,7 @@ impl<T> Unique<T> {
 /// However, there is a slight modification where head and tail can be locked, as my implementation of Dmitry's queue failed some tests under peak contention  - and I've opted for a more conservative queue
 pub const QUEUE_NULL: usize = 0;
 #[repr(C)]
-pub struct QueueUsize {
+pub struct QueueUsize<'a> {
     _cache_pad_0: [u8; 64],
     // buffer: &'a [AtomicUsize],
     buffer: Unique<AtomicUsize>,
@@ -63,18 +63,19 @@ pub struct QueueUsize {
     _cache_pad_2: [u8; 64],
     tail: IndexSpinlock,
     _cache_pad_3: [u8; 64],
+    _lifetime : PhantomData<&'a AtomicUsize>,
 }
 
-impl QueueUsize {
+impl<'a> QueueUsize<'a> {
     // const CAPACITY_MASK : u32 = CAPACITY as u32 - 1;
 
-    pub const unsafe fn from_static(slice: *mut AtomicUsize, capacity: usize) -> QueueUsize {
+    pub const unsafe fn from_static(slice: &'a *mut AtomicUsize, capacity: usize) -> QueueUsize<'a> {
         //pub const fn new(buffer_ptr : *const usize, capacity : usize)->Queue{
 
         return QueueUsize {
             head: IndexSpinlock::new(0),
             tail: IndexSpinlock::new(0),
-            buffer: Unique::new(slice),
+            buffer: Unique::new(*slice),
             // buffer_ptr : slice.as_ptr() as *const AtomicUsize,
             capacity: capacity as u32,
             buffer_capacity_mask: capacity as u32 - 1,
@@ -82,6 +83,7 @@ impl QueueUsize {
             _cache_pad_1: [0; 64],
             _cache_pad_2: [0; 64],
             _cache_pad_3: [0; 64],
+            _lifetime:PhantomData,
         };
     }
     pub fn clear(&self) {
@@ -146,11 +148,11 @@ impl QueueUsize {
     }
 }
 
-unsafe impl Send for QueueUsize {}
-unsafe impl Sync for QueueUsize {}
+unsafe impl<'a> Send for QueueUsize<'a> {}
+unsafe impl<'a> Sync for QueueUsize<'a> {}
 
 #[repr(C)]
-pub struct QueueU32 {
+pub struct QueueU32<'a> {
     _cache_pad_0: [u8; 64],
     buffer: Unique<AtomicU32>,
     // buffer_ptr : *const AtomicUsize,
@@ -162,10 +164,11 @@ pub struct QueueU32 {
     _cache_pad_2: [u8; 64],
     tail: IndexSpinlock,
     _cache_pad_3: [u8; 64],
+    _lifetime : PhantomData<&'a AtomicUsize>,
 }
 
 pub const QUEUE_U32_NULL: u32 = 0xFFFFFFFF;
-impl QueueU32 {
+impl<'a> QueueU32<'a> {
     // const CAPACITY_MASK : u32 = CAPACITY as u32 - 1;
 
     // #[cfg(any(test, feature = "std"))]
@@ -187,13 +190,13 @@ impl QueueU32 {
     /// This method is a kludge to work around lack of stable const-generics, const unions, etc.  
     /// It is up to the caller to ensure that the pointer passed in is truly static, and is not mutated externally.
     /// Capacity must be a non-zero power of two.
-    pub const unsafe fn from_static(slice: *mut AtomicU32, capacity: usize) -> QueueU32 {
+    pub const unsafe fn from_static(slice: &'a *mut AtomicU32, capacity: usize) -> QueueU32<'a> {
         //pub const fn new(buffer_ptr : *const usize, capacity : usize)->Queue{
 
         return QueueU32 {
             head: IndexSpinlock::new(0),
             tail: IndexSpinlock::new(0),
-            buffer: Unique::new(slice),
+            buffer: Unique::new(*slice),
             capacity: capacity as u32,
             // buffer_ptr : slice.as_ptr() as *const AtomicUsize,
             buffer_capacity_mask: capacity as u32 - 1,
@@ -201,6 +204,7 @@ impl QueueU32 {
             _cache_pad_1: [0; 64],
             _cache_pad_2: [0; 64],
             _cache_pad_3: [0; 64],
+            _lifetime:PhantomData,
         };
     }
     pub fn clear(&self) {
@@ -263,8 +267,8 @@ impl QueueU32 {
     }
 }
 
-unsafe impl Send for QueueU32 {}
-unsafe impl Sync for QueueU32 {}
+unsafe impl<'a> Send for QueueU32<'a> {}
+unsafe impl<'a> Sync for QueueU32<'a> {}
 
 #[cfg(test)]
 mod test;

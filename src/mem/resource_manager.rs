@@ -1,90 +1,93 @@
 use crate::mem::QueueU32;
+use core::mem::MaybeUninit;
+use core::ptr;
 use crate::sync::Unique;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
-
+use core::marker::PhantomData;
 const INITIALIZED: u32 = 1; //'in use' flag
 const UNIQUE_OFFSET: u32 = 2; // unique value
 
-//32 bit index + 1 bit 'in-use' flag + 32 bit unique
-const INDEX_MASK: u64 = (1 << 32) - 1;
 
-// pub struct Resource<T> {
-// 	data : T,
-// 	ref_count : AtomicU32,
-// 	unique_id : AtomicU32,
-// }
 
-pub struct ResourceManager<T> {
-    // reference_counts: &'a [AtomicU32],
-    reference_counts: Unique<AtomicU32>,
-    // slots: &'a [AtomicU32],
-    slots: Unique<AtomicU32>,
-    // data: &'a [MaybeUninit<T>],
-    data: Unique<T>,  //TODO: consider storing refcount and unique in here to improve cache locality
-    free_queue: QueueU32,
-    high_water_mark: AtomicU32,
-    capacity: u32,
+pub struct ResourceData<T> {
+	data : MaybeUninit<T>,
+	ref_count : AtomicU32,
+	unique_id : AtomicU32,
 }
 
-impl<T> ResourceManager<T> {
-    pub const unsafe fn from_static(
-        slots: *mut AtomicU32,
-        reference_counts: *mut AtomicU32,
-        free_queue: *mut AtomicU32,
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct ResourceHandle{
+	index : u32, 
+	unique : u32,
+}
 
-        // data: &'a [MaybeUninit<T>],
-        data: *mut T,
+pub struct ResourceRef<'a, T>{
+	index : u32, 
+	// unique : u32,
+	_phantom : PhantomData<*mut u8>, //to disable send and sync
+	_lifetime : PhantomData<&'a T>,
+}
+
+pub struct ResourceManager<'a, T> {
+
+    buffer: Unique<ResourceData<T>>,  
+
+    free_queue: QueueU32<'a>,
+    high_water_mark: AtomicU32,
+    capacity: u32,
+    _lifetime : PhantomData<&'a T>,
+}
+
+impl<'a, T> ResourceManager<'a, T> {
+    pub const unsafe fn from_static(
+
+        free_queue: &'a *mut AtomicU32,
+        buffer : &'a *mut ResourceData<T>,
         capacity: u32,
-    ) -> ResourceManager<T> {
-        return ResourceManager::<T> {
-            reference_counts: Unique::new(reference_counts),
-            slots: Unique::new(slots),
-            data: Unique::<T>::new(data),
+    ) -> ResourceManager<'a, T> {
+        return ResourceManager::<'a, T> {
+
+            buffer: Unique::<ResourceData<T>>::new(*buffer),
             free_queue: QueueU32::from_static(free_queue, capacity as usize),
             capacity: capacity,
             high_water_mark: AtomicU32::new(0),
+            _lifetime : PhantomData,
         };
     }
 
-    fn increment_ref_count(&self, index: isize) {
-        let ref_count = unsafe {
-            self.reference_counts
-                .as_ptr()
-                .offset(index)
-                .as_ref()
-                .unwrap()
-        };
-        ref_count.fetch_add(1, Ordering::Release);
+    unsafe fn get_data(&self, index:u32) ->&mut ResourceData<T>{
+		return 
+			self.buffer.as_ptr().offset(index as isize).as_mut().unwrap();
+	}
+
+    unsafe fn increment_ref_count(&self, index: u32) {
+        let data = self.get_data(index);
+        data.ref_count.fetch_add(1, Ordering::Release);
     }
 
-    fn decrement_ref_count(&self, index: isize) {
-        let ref_count = unsafe {
-            self.reference_counts
-                .as_ptr()
-                .offset(index)
-                .as_ref()
-                .unwrap()
-        };
-        let previous = ref_count.fetch_sub(1, Ordering::AcqRel);
+    unsafe fn decrement_ref_count(&self, index: u32) {
+        let data = self.get_data(index);
+        let previous = data.ref_count.fetch_sub(1, Ordering::AcqRel);
 
         // There is no possible way to get another reference if this was the last one.  We MUST have already incremented the unique value.
         if previous == 1 {
-            unsafe {
-                // Sledgehammer this into mutable - we've protected it behind an atomic ref count.
-                core::ptr::drop_in_place(self.data.as_ptr().offset(index) as *mut T);
+            
+            // Sledgehammer this into mutable - we've protected it behind an atomic ref count.
+            ptr::drop_in_place(data.data.as_mut_ptr());
 
-                self.free_queue.enqueue(index as u32);
-            }
+            self.free_queue.enqueue(index as u32);
+            
         }
     }
 
     /// Store a T in the resource manager.  If space exists, this returns a handle to the object.  Otherwise returns None.
-    pub fn retain(&self, obj: T) -> Option<u64> {
+    pub fn store(&self, obj: T) -> Option<ResourceHandle> {
         let tmp = self.free_queue.dequeue();
         let index;
         let unique;
-
+        let data;
         if tmp.is_none() {
             // Assume this operation is going to succeed by incrementing the counter.
             // If it fails, we've run out of memory and things are probably about to get a lot worse, anyway.
@@ -95,41 +98,32 @@ impl<T> ResourceManager<T> {
                 return None;
             }
 
-            index = next as isize;
+            index = next;
             unique = INITIALIZED;
+            data = unsafe{self.get_data(index)};
         } else {
-            index = tmp.unwrap() as isize;
-            let slot = unsafe { self.slots.as_ptr().offset(index).as_ref().unwrap() };
-            unique = slot.load(Ordering::Acquire) | INITIALIZED;
+            index = tmp.unwrap();
+            data = unsafe{self.get_data(index)};
+            unique = data.unique_id.load(Ordering::Acquire) | INITIALIZED;
         }
-        let slot = unsafe { self.slots.as_ptr().offset(index).as_ref().unwrap() };
-        slot.store(unique, Ordering::Release);
-        unsafe {
-            let t = self.data.as_ptr().offset(index as isize) as *mut T;
-            core::ptr::write(t, obj);
-        }
-        let ref_count = unsafe {
-            self.reference_counts
-                .as_ptr()
-                .offset(index)
-                .as_ref()
-                .unwrap()
-        };
-        ref_count.store(1, Ordering::Release);
+        data.unique_id.store(unique, Ordering::Release);
+        data.data = MaybeUninit::new(obj);
+        
+        data.ref_count.store(1, Ordering::Release);
 
-        return Some((index as u64) | ((unique as u64) << 32));
+        return Some(ResourceHandle{index:index, unique:unique});
     }
 
     /// Release the local reference to the object stored at the handle location.  
     /// The object will not actually be dropped until all references are released, however no handles will return the object.
-    pub fn release(&self, handle: u64) -> bool {
-        let index = (handle & INDEX_MASK) as isize;
-        let unique = (handle >> 32) as u32;
-        let next = (unique & !INITIALIZED).wrapping_add(UNIQUE_OFFSET);
-        let slot = unsafe { self.slots.as_ptr().offset(index).as_ref().unwrap() };
-        match slot.compare_exchange(unique, next, Ordering::AcqRel, Ordering::Relaxed) {
+    pub fn free(&self, handle: ResourceHandle) -> bool {
+    	unsafe{
+        let next = (handle.unique & !INITIALIZED).wrapping_add(UNIQUE_OFFSET);
+        let data = self.get_data(handle.index);
+        match data.unique_id.compare_exchange(handle.unique, next, Ordering::AcqRel, Ordering::Relaxed) {
             Ok(_) => {
-                self.decrement_ref_count(index);
+
+                self.decrement_ref_count(handle.index);
                 return true;
             }
 
@@ -137,69 +131,49 @@ impl<T> ResourceManager<T> {
                 return false;
             }
         }
+    	}
     }
 }
 
-/// A resource is a simple, non-copyable reference to data.  This should form the basis of resource managerment (retain release).
-// pub struct Resource<'a, T: Sync> {
-// 	manager: &'a ResourceManager<T>,
-//     reference: &'a T,
-// }
 
-// impl<'a, T: Sync> Deref for Resource<'a, T> {
-//     type Target = T;
 
-//     fn deref(&self) -> &Self::Target {
-//         return self.reference;
-//     }
-// }
 
-impl<T: Sync> ResourceManager<T> {
+impl<'a, T: Sync> ResourceManager<'a, T> {
     /// Release a reference previously allocated from the resource manager.
-    pub unsafe fn release_reference(&self, resource: & T) {
-        let ptr = resource as *const T;
-        let index =
-            (ptr as isize - self.data.as_ptr() as isize) / core::mem::size_of::<T>() as isize;
-        // if index < 0 || index >= self.capacity as isize {
-        // panic!("Releasing an object we don't own!!!!");
-        // }
-
-        self.decrement_ref_count(index);
+    pub fn release(&self, resource: ResourceRef<'a, T>) {
+    	unsafe{
+        self.decrement_ref_count(resource.index);
+    }
     }
 
     /// Clones a reference, incrementing the reference count.
-    pub unsafe fn clone_reference<'a>(&'a self, resource: &'a T) -> &'a T {
-        let ptr = resource as *const T;
-        let index =
-            (ptr as isize - self.data.as_ptr() as isize) / core::mem::size_of::<T>() as isize;
-        // if index < 0 || index >= self.capacity as isize {
-        // panic!("cloning an object we don't own!!!!");
-        // }
-        //Since we already have one, it's safe to get another.
-        self.increment_ref_count(index);
+    pub fn clone(&'a self, resource: &ResourceRef<'a, T>) -> ResourceRef<'a, T>{
+    	unsafe{
+        self.increment_ref_count(resource.index);
 
-        return resource;
+        return ResourceRef{index:resource.index, _phantom:PhantomData, _lifetime:PhantomData};
+    	}
 
     }
-
+    pub fn get(&'a self, resource: &'a ResourceRef<'a, T>)->&'a T {
+    	unsafe{
+    	let data = self.get_data(resource.index);
+			return data.data.as_ptr().as_ref().unwrap();
+		}
+    }
     /// Get a reference counted reference to the object based on a handle.  Returns None if the handle points to empty space.
-    pub unsafe fn retain_reference<'a>(&'a self, handle: u64) -> Option<&'a T> {
-        let index = (handle & INDEX_MASK) as isize;
-        let unique = (handle >> 32) as u32;
-        self.increment_ref_count(index);
-        let slot = self.slots.as_ptr().offset(index).as_ref().unwrap();
-        if slot.load(Ordering::Acquire) != unique {
-            self.decrement_ref_count(index);
+    pub fn retain(&'a self, handle: ResourceHandle) -> Option<ResourceRef<'a, T>> {
+    	unsafe{
+        self.increment_ref_count(handle.index);
+        let data = self.get_data(handle.index);
+        if data.unique_id.load(Ordering::Acquire) != handle.unique {
+            self.decrement_ref_count(handle.index);
             // println!("none {} {}", index, unique);
             return None;
         } else {
-            return self
-                .data
-                .as_ptr()
-                .offset(index)
-                .as_ref()
-                .map(|val| val);
+            return Some(ResourceRef{index:handle.index, _phantom:PhantomData, _lifetime:PhantomData});
         }
+    	}
     }
 }
 

@@ -15,10 +15,11 @@ mod test {
     fn alloc() {
         unsafe {
             let mut buffer_local: [usize; 4096] = [0; 4096];
+            let mut buffer_ptr = &mut buffer_local[0] as *mut usize as *mut AtomicUsize;
             // unsafe { Swap::<[usize; 4096], [AtomicUsize; 4096]>::get([0; 4096]) };
             let mp = MemoryPool::from_static(
                 64,
-                &mut buffer_local[0] as *mut usize as *mut AtomicUsize,
+                &buffer_ptr,
                 4096,
             );
             for _i in 0..4096 {
@@ -32,10 +33,11 @@ mod test {
     fn alloc_free() {
         unsafe {
             let mut buffer_local: [usize; 4096] = [0; 4096];
+            let mut buffer_ptr = &mut buffer_local[0] as *mut usize as *mut AtomicUsize;
             // unsafe { Swap::<[usize; 4096], [AtomicUsize; 4096]>::get([0; 4096]) };
             let mp = MemoryPool::from_static(
                 64,
-                &mut buffer_local[0] as *mut usize as *mut AtomicUsize,
+                &buffer_ptr,
                 4096,
             );
 

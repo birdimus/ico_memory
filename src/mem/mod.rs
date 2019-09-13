@@ -17,5 +17,8 @@ pub use indexed_data_store::IndexedRef;
 pub use indexed_data_store::IndexedData;
 
 pub use resource_manager::ResourceManager;
+pub use resource_manager::ResourceData;
+pub use resource_manager::ResourceHandle;
+pub use resource_manager::ResourceRef;
 pub use memory_pool::MemoryPool;
 pub use memory_manager::MemoryManager;

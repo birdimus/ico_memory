@@ -3,31 +3,32 @@ use crate::mem::mmap;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::x86_64::*;
 use core::sync::atomic::AtomicUsize;
-
-pub struct MemoryManager {
-    pool_64: MemoryPool,
-    pool_128: MemoryPool,
-    pool_256: MemoryPool,
-    pool_512: MemoryPool,
-    pool_1024: MemoryPool,
-    pool_2048: MemoryPool,
+use core::marker::PhantomData;
+pub struct MemoryManager<'a> {
+    pool_64: MemoryPool<'a>,
+    pool_128: MemoryPool<'a>,
+    pool_256: MemoryPool<'a>,
+    pool_512: MemoryPool<'a>,
+    pool_1024: MemoryPool<'a>,
+    pool_2048: MemoryPool<'a>,
+    _lifetime : PhantomData<&'a AtomicUsize>,
 }
 
-impl MemoryManager {
+impl<'a> MemoryManager<'a> {
     pub const unsafe fn from_static(
-        slice_64: *mut AtomicUsize,
+        slice_64: &'a *mut AtomicUsize,
         capacity_64: usize,
-        slice_128: *mut AtomicUsize,
+        slice_128: &'a *mut AtomicUsize,
         capacity_128: usize,
-        slice_256: *mut AtomicUsize,
+        slice_256: &'a *mut AtomicUsize,
         capacity_256: usize,
-        slice_512: *mut AtomicUsize,
+        slice_512: &'a *mut AtomicUsize,
         capacity_512: usize,
-        slice_1024: *mut AtomicUsize,
+        slice_1024: &'a *mut AtomicUsize,
         capacity_1024: usize,
-        slice_2048: *mut AtomicUsize,
+        slice_2048: &'a *mut AtomicUsize,
         capacity_2048: usize,
-    ) -> MemoryManager {
+    ) -> MemoryManager<'a> {
         return MemoryManager {
             pool_64: MemoryPool::from_static(64, slice_64, capacity_64),
             pool_128: MemoryPool::from_static(128, slice_128, capacity_128),
@@ -35,12 +36,13 @@ impl MemoryManager {
             pool_512: MemoryPool::from_static(512, slice_512, capacity_512),
             pool_1024: MemoryPool::from_static(1024, slice_1024, capacity_1024),
             pool_2048: MemoryPool::from_static(2048, slice_2048, capacity_2048),
+            _lifetime:PhantomData,
         };
     }
 }
 
 // This function is a super duper bad idea
-impl MemoryManager {
+impl<'a> MemoryManager<'a> {
     // unsafe fn clear(&self){
     //         self.pool_64.clear();
     //         self.pool_128.clear();
@@ -136,7 +138,7 @@ impl MemoryManager {
     }
 }
 
-unsafe impl GlobalAlloc for MemoryManager {
+unsafe impl<'a> GlobalAlloc for MemoryManager<'a> {
     #[inline(always)]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // All allocations are aligned at their size boundary - so we just need the greater of the two.

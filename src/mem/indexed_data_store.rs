@@ -131,6 +131,16 @@ impl<'a, T> IndexedDataStore<'a, T>{
 		}
 	}
 
+	//since we already have a reference, it's safe to get another
+	pub fn clone(&'a self, reference:&'a IndexedRef<T>) -> IndexedRef<T> {
+		unsafe{
+			let data = self.get_data(reference.index);
+			data.ref_count.set(data.ref_count.get() + 1);
+			return IndexedRef{index:reference.index, _phantom:PhantomData,  _lifetime:PhantomData};
+			// return self.get_raw(reference.index);
+		}
+	}
+
 	/// Release a strong reference.  This decrements the reference count.
 	pub fn release(&'a self, reference:IndexedRef<T>) {
 		unsafe{
