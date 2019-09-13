@@ -26,7 +26,7 @@ mod test {
             let ptr: *mut MaybeUninit<IndexedData<Vec<u32>>> = buffer2.as_mut_ptr();
 
             {
-                let mut ids: IndexedDataStore<Vec<u32>> =
+                let ids: IndexedDataStore<Vec<u32>> =
                     unsafe { IndexedDataStore::from_raw(&ptr, 1024) };
                 let mut v = Vec::<u32>::with_capacity(1);
                 v.push(9);
@@ -47,7 +47,7 @@ mod test {
             let ptr: *mut MaybeUninit<IndexedData<Vec<u32>>> = buffer2.as_mut_ptr();
 
             {
-                let mut ids: IndexedDataStore<Vec<u32>> =
+                let ids: IndexedDataStore<Vec<u32>> =
                     unsafe { IndexedDataStore::from_raw(&ptr, 1024) };
 
                 let mut handles = Vec::<IndexedHandle>::with_capacity(1024);
