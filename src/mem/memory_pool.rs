@@ -1,10 +1,10 @@
 use crate::mem::mmap;
 use crate::mem::QueueUsize;
 use crate::sync::Spinlock;
+use core::marker::PhantomData;
 use core::num::NonZeroUsize;
 use core::ptr;
 use core::sync::atomic::AtomicUsize;
-use core::marker::PhantomData;
 
 pub const MAX_CHUNKS_POT: usize = 10;
 pub const MAX_CHUNKS: usize = 1 << MAX_CHUNKS_POT;
@@ -105,7 +105,7 @@ impl Drop for BaseMemoryPool {
 pub struct MemoryPool<'a> {
     memory_pool: BaseMemoryPool,
     free_queue: QueueUsize<'a>,
-    _lifetime : PhantomData<&'a AtomicUsize>,
+    _lifetime: PhantomData<&'a AtomicUsize>,
 }
 
 // const fn is_power_of_two_or_zero(value: usize) -> bool {
@@ -127,7 +127,7 @@ impl<'a> MemoryPool<'a> {
         return MemoryPool {
             memory_pool: BaseMemoryPool::new(block_size, capacity >> MAX_CHUNKS_POT),
             free_queue: QueueUsize::from_static(slice, capacity),
-            _lifetime:PhantomData,
+            _lifetime: PhantomData,
         };
     }
 

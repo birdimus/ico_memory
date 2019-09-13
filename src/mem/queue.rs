@@ -63,13 +63,16 @@ pub struct QueueUsize<'a> {
     _cache_pad_2: [u8; 64],
     tail: IndexSpinlock,
     _cache_pad_3: [u8; 64],
-    _lifetime : PhantomData<&'a AtomicUsize>,
+    _lifetime: PhantomData<&'a AtomicUsize>,
 }
 
 impl<'a> QueueUsize<'a> {
     // const CAPACITY_MASK : u32 = CAPACITY as u32 - 1;
 
-    pub const unsafe fn from_static(slice: &'a *mut AtomicUsize, capacity: usize) -> QueueUsize<'a> {
+    pub const unsafe fn from_static(
+        slice: &'a *mut AtomicUsize,
+        capacity: usize,
+    ) -> QueueUsize<'a> {
         //pub const fn new(buffer_ptr : *const usize, capacity : usize)->Queue{
 
         return QueueUsize {
@@ -83,7 +86,7 @@ impl<'a> QueueUsize<'a> {
             _cache_pad_1: [0; 64],
             _cache_pad_2: [0; 64],
             _cache_pad_3: [0; 64],
-            _lifetime:PhantomData,
+            _lifetime: PhantomData,
         };
     }
     pub fn clear(&self) {
@@ -164,7 +167,7 @@ pub struct QueueU32<'a> {
     _cache_pad_2: [u8; 64],
     tail: IndexSpinlock,
     _cache_pad_3: [u8; 64],
-    _lifetime : PhantomData<&'a AtomicUsize>,
+    _lifetime: PhantomData<&'a AtomicUsize>,
 }
 
 pub const QUEUE_U32_NULL: u32 = 0xFFFFFFFF;
@@ -204,7 +207,7 @@ impl<'a> QueueU32<'a> {
             _cache_pad_1: [0; 64],
             _cache_pad_2: [0; 64],
             _cache_pad_3: [0; 64],
-            _lifetime:PhantomData,
+            _lifetime: PhantomData,
         };
     }
     pub fn clear(&self) {

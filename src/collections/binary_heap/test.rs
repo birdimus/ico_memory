@@ -47,10 +47,9 @@ mod test {
         }
 
         for i in 0..200 {
-           
-                assert_eq!(b.heap_index[b.heap[i + 1] as usize].index, i as u32 + 1);
-                // assert_eq!(b.heap[b.heap_index[i] as usize], i as u32);
-            
+            assert_eq!(b.heap_index[b.heap[i + 1] as usize].index, i as u32 + 1);
+            // assert_eq!(b.heap[b.heap_index[i] as usize], i as u32);
+
             // assert_eq!(b.heap[1+i], i as u32);
         }
     }
@@ -68,18 +67,14 @@ mod test {
                 assert_eq!(b.get(h2).unwrap(), &t);
             }
             for i in 0..200 {
-                
-                    assert_eq!(b.heap[b.heap_index[i].index as usize], i as u32);
-                
+                assert_eq!(b.heap[b.heap_index[i].index as usize], i as u32);
             }
             for i in 0..100 {
                 assert_eq!(b.pop().unwrap(), i as i32, "binary heap pop {}", i);
                 assert_eq!(b.pop().unwrap(), i as i32, "binary heap pop {}", i);
                 let count = 99 - i;
                 for k in 0..(2 * count) {
-                    
-                        assert_eq!(b.heap_index[b.heap[k + 1] as usize].index, k as u32 + 1);
-                    
+                    assert_eq!(b.heap_index[b.heap[k + 1] as usize].index, k as u32 + 1);
                 }
             }
         }

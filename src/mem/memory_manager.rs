@@ -1,9 +1,9 @@
-use crate::mem::MemoryPool;
 use crate::mem::mmap;
+use crate::mem::MemoryPool;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::x86_64::*;
-use core::sync::atomic::AtomicUsize;
 use core::marker::PhantomData;
+use core::sync::atomic::AtomicUsize;
 pub struct MemoryManager<'a> {
     pool_64: MemoryPool<'a>,
     pool_128: MemoryPool<'a>,
@@ -11,7 +11,7 @@ pub struct MemoryManager<'a> {
     pool_512: MemoryPool<'a>,
     pool_1024: MemoryPool<'a>,
     pool_2048: MemoryPool<'a>,
-    _lifetime : PhantomData<&'a AtomicUsize>,
+    _lifetime: PhantomData<&'a AtomicUsize>,
 }
 
 impl<'a> MemoryManager<'a> {
@@ -36,7 +36,7 @@ impl<'a> MemoryManager<'a> {
             pool_512: MemoryPool::from_static(512, slice_512, capacity_512),
             pool_1024: MemoryPool::from_static(1024, slice_1024, capacity_1024),
             pool_2048: MemoryPool::from_static(2048, slice_2048, capacity_2048),
-            _lifetime:PhantomData,
+            _lifetime: PhantomData,
         };
     }
 }
