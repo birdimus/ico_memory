@@ -115,17 +115,17 @@ impl<'a, T> IndexedDataStore<'a, T> {
 
     /// Retain a strong reference.  If no reference exists returns None, otherwise, this increments the reference count and returns the reference.  
     /// It is up to the user to manually release() the returned reference when they are finished.
-    pub fn retain(&'a self, handle: IndexedHandle) -> Option<IndexedRef<T>> {
+    pub fn retain(&'a self, handle: IndexedHandle) -> NullableIndexedRef<T> {
         if handle.index >= self.high_water_mark.get() {
-            return None;
+            return NullableIndexedRef::none();
         }
         unsafe {
             let data = self.get_data(handle.index);
             if !data.is_match(handle.unique) {
-                return None;
+                return NullableIndexedRef::none();
             }
             data.ref_count.set(data.ref_count.get() + 1);
-            return Some(IndexedRef {
+            return NullableIndexedRef::some(IndexedRef {
                 index: handle.index,
                 _phantom: PhantomData,
                 _lifetime: PhantomData,
@@ -195,8 +195,14 @@ impl<'a, T> IndexedDataStore<'a, T> {
                     _phantom: PhantomData,
                 };
             } else {
-                #[cfg(any(test, feature = "std"))]
-                std::process::abort();
+            	panic!("Out of data storage.");
+                // #[cfg(any(test, feature = "std"))]
+                // std::process::abort();
+                // return IndexedHandle {
+                // 	index:SLOT_NULL, 
+                // 	unique:0,
+                // 	_phantom: PhantomData,
+                // };
             }
         }
     }
@@ -234,7 +240,8 @@ impl<'a, T> Drop for IndexedDataStore<'a, T> {
         }
     }
 }
-
+const REF_NULL: u32 = 0xFFFFFFFF;
+#[derive(PartialEq, Eq, Debug, Hash)]
 pub struct IndexedRef<'a, T> {
     index: u32,
     // unique : u32,
@@ -242,8 +249,39 @@ pub struct IndexedRef<'a, T> {
     _lifetime: PhantomData<&'a T>,
 }
 
+#[derive(PartialEq, Eq, Debug, Hash)]
+pub struct NullableIndexedRef<'a, T> {
+    index: u32,
+    // unique : u32,
+    _phantom: PhantomData<*mut u8>, //to disable send and sync
+    _lifetime: PhantomData<&'a T>,
+}
+
+impl<'a, T> NullableIndexedRef<'a, T>{
+	pub fn some(index_ref : IndexedRef<'a, T>) ->NullableIndexedRef<'a, T>{
+		return NullableIndexedRef{index:index_ref.index, _phantom:PhantomData, _lifetime:PhantomData};
+	}
+	pub fn none() ->NullableIndexedRef<'a, T>{
+		return NullableIndexedRef{index:REF_NULL, _phantom:PhantomData, _lifetime:PhantomData};
+	}
+	pub fn is_some(&self) -> bool{
+		return self.index != REF_NULL;
+	}
+	pub fn is_none(&self) -> bool{
+		return self.index == REF_NULL;
+	}
+	pub fn unwrap(self) ->IndexedRef<'a, T>{
+		if self.is_none(){
+			panic!("Attempt to deref null value");
+		}
+		return IndexedRef{index:self.index, _phantom:PhantomData, _lifetime:PhantomData};
+	}
+
+}
+
+
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct IndexedHandle {
     index: u32,
     unique: u32,

@@ -15,19 +15,49 @@ pub struct ResourceData<T> {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct ResourceHandle {
     index: u32,
     unique: u32,
 }
 
+#[derive(PartialEq, Eq, Debug, Hash)]
 pub struct ResourceRef<'a, T> {
     index: u32,
     // unique : u32,
     _phantom: PhantomData<*mut u8>, //to disable send and sync
     _lifetime: PhantomData<&'a T>,
 }
+const REF_NULL: u32 = 0xFFFFFFFF;
+#[derive(PartialEq, Eq, Debug, Hash)]
+pub struct NullableResourceRef<'a, T> {
+    index: u32,
+    // unique : u32,
+    _phantom: PhantomData<*mut u8>, //to disable send and sync
+    _lifetime: PhantomData<&'a T>,
+}
 
+impl<'a, T> NullableResourceRef<'a, T>{
+	pub fn some(index_ref : ResourceRef<'a, T>) ->NullableResourceRef<'a, T>{
+		return NullableResourceRef{index:index_ref.index, _phantom:PhantomData, _lifetime:PhantomData};
+	}
+	pub fn none() ->NullableResourceRef<'a, T>{
+		return NullableResourceRef{index:REF_NULL, _phantom:PhantomData, _lifetime:PhantomData};
+	}
+	pub fn is_some(&self) -> bool{
+		return self.index != REF_NULL;
+	}
+	pub fn is_none(&self) -> bool{
+		return self.index == REF_NULL;
+	}
+	pub fn unwrap(self) ->ResourceRef<'a, T>{
+		if self.is_none(){
+			panic!("Attempt to deref null value");
+		}
+		return ResourceRef{index:self.index, _phantom:PhantomData, _lifetime:PhantomData};
+	}
+
+}
 pub struct ResourceManager<'a, T> {
     buffer: Unique<ResourceData<T>>,
 
@@ -166,16 +196,16 @@ impl<'a, T: Sync> ResourceManager<'a, T> {
         }
     }
     /// Get a reference counted reference to the object based on a handle.  Returns None if the handle points to empty space.
-    pub fn retain(&'a self, handle: ResourceHandle) -> Option<ResourceRef<'a, T>> {
+    pub fn retain(&'a self, handle: ResourceHandle) -> NullableResourceRef<'a, T> {
         unsafe {
             self.increment_ref_count(handle.index);
             let data = self.get_data(handle.index);
             if data.unique_id.load(Ordering::Acquire) != handle.unique {
                 self.decrement_ref_count(handle.index);
                 // println!("none {} {}", index, unique);
-                return None;
+                return NullableResourceRef::none();
             } else {
-                return Some(ResourceRef {
+                return NullableResourceRef::some(ResourceRef {
                     index: handle.index,
                     _phantom: PhantomData,
                     _lifetime: PhantomData,
