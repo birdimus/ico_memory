@@ -1,6 +1,6 @@
 [package]
 name = "ico_memory"
-version = "0.1.7"
+version = "0.1.8"
 authors = ["Brian Kehrer <brian.kehrer@gmail.com>"]
 edition = "2018"
 license = "MPL-2.0"
@@ -29,4 +29,4 @@ panic = "abort"
 
 [features]
 std = []
-#default = ["std"]
+default = ["std"]
