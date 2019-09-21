@@ -18,8 +18,8 @@ pub use indexed_data_store::NullableIndexedRef;
 
 pub use memory_manager::MemoryManager;
 pub use memory_pool::MemoryPool;
+pub use resource_manager::NullableResourceRef;
 pub use resource_manager::ResourceData;
 pub use resource_manager::ResourceHandle;
 pub use resource_manager::ResourceManager;
 pub use resource_manager::ResourceRef;
-pub use resource_manager::NullableResourceRef;

@@ -37,26 +37,37 @@ pub struct NullableResourceRef<'a, T> {
     _lifetime: PhantomData<&'a T>,
 }
 
-impl<'a, T> NullableResourceRef<'a, T>{
-	pub fn some(index_ref : ResourceRef<'a, T>) ->NullableResourceRef<'a, T>{
-		return NullableResourceRef{index:index_ref.index, _phantom:PhantomData, _lifetime:PhantomData};
-	}
-	pub fn none() ->NullableResourceRef<'a, T>{
-		return NullableResourceRef{index:REF_NULL, _phantom:PhantomData, _lifetime:PhantomData};
-	}
-	pub fn is_some(&self) -> bool{
-		return self.index != REF_NULL;
-	}
-	pub fn is_none(&self) -> bool{
-		return self.index == REF_NULL;
-	}
-	pub fn unwrap(self) ->ResourceRef<'a, T>{
-		if self.is_none(){
-			panic!("Attempt to deref null value");
-		}
-		return ResourceRef{index:self.index, _phantom:PhantomData, _lifetime:PhantomData};
-	}
-
+impl<'a, T> NullableResourceRef<'a, T> {
+    pub fn some(index_ref: ResourceRef<'a, T>) -> NullableResourceRef<'a, T> {
+        return NullableResourceRef {
+            index: index_ref.index,
+            _phantom: PhantomData,
+            _lifetime: PhantomData,
+        };
+    }
+    pub const fn none() -> NullableResourceRef<'a, T> {
+        return NullableResourceRef {
+            index: REF_NULL,
+            _phantom: PhantomData,
+            _lifetime: PhantomData,
+        };
+    }
+    pub const fn is_some(&self) -> bool {
+        return self.index != REF_NULL;
+    }
+    pub const fn is_none(&self) -> bool {
+        return self.index == REF_NULL;
+    }
+    pub fn unwrap(self) -> ResourceRef<'a, T> {
+        if self.is_none() {
+            panic!("Attempt to deref null value");
+        }
+        return ResourceRef {
+            index: self.index,
+            _phantom: PhantomData,
+            _lifetime: PhantomData,
+        };
+    }
 }
 pub struct ResourceManager<'a, T> {
     buffer: Unique<ResourceData<T>>,

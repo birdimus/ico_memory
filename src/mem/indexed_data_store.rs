@@ -137,23 +137,23 @@ impl<'a, T> IndexedDataStore<'a, T> {
     /// It is imperative users not hold these references
     pub unsafe fn get(&'a self, reference: &'a IndexedRef<T>) -> &'a mut T {
         // unsafe {
-            let data = self.get_data(reference.index);
-            return data.data.as_mut_ptr().as_mut().unwrap();
-            // return self.get_raw(reference.index);
+        let data = self.get_data(reference.index);
+        return data.data.as_mut_ptr().as_mut().unwrap();
+        // return self.get_raw(reference.index);
         // }
     }
 
- //    pub fn invoke<F>(&'a self, reference: &'a IndexedRef<T>, closure: F)->u32
-	//     where F: Fn(&mut T)->u32 {
+    //    pub fn invoke<F>(&'a self, reference: &'a IndexedRef<T>, closure: F)->u32
+    //     where F: Fn(&mut T)->u32 {
 
-	//     unsafe {
- //            let data = self.get_data(reference.index);
- //            let t_value = data.data.as_mut_ptr().as_mut().unwrap();
- //            return closure(t_value);
- //            // return self.get_raw(reference.index);
- //        }
-	    
-	// }
+    //     unsafe {
+    //            let data = self.get_data(reference.index);
+    //            let t_value = data.data.as_mut_ptr().as_mut().unwrap();
+    //            return closure(t_value);
+    //            // return self.get_raw(reference.index);
+    //        }
+
+    // }
 
     //since we already have a reference, it's safe to get another
     pub fn clone(&'a self, reference: &'a IndexedRef<T>) -> IndexedRef<T> {
@@ -209,11 +209,11 @@ impl<'a, T> IndexedDataStore<'a, T> {
                     _phantom: PhantomData,
                 };
             } else {
-            	panic!("Out of data storage.");
+                panic!("Out of data storage.");
                 // #[cfg(any(test, feature = "std"))]
                 // std::process::abort();
                 // return IndexedHandle {
-                // 	index:SLOT_NULL, 
+                // 	index:SLOT_NULL,
                 // 	unique:0,
                 // 	_phantom: PhantomData,
                 // };
@@ -271,28 +271,38 @@ pub struct NullableIndexedRef<'a, T> {
     _lifetime: PhantomData<&'a T>,
 }
 
-impl<'a, T> NullableIndexedRef<'a, T>{
-	pub fn some(index_ref : IndexedRef<'a, T>) ->NullableIndexedRef<'a, T>{
-		return NullableIndexedRef{index:index_ref.index, _phantom:PhantomData, _lifetime:PhantomData};
-	}
-	pub fn none() ->NullableIndexedRef<'a, T>{
-		return NullableIndexedRef{index:REF_NULL, _phantom:PhantomData, _lifetime:PhantomData};
-	}
-	pub fn is_some(&self) -> bool{
-		return self.index != REF_NULL;
-	}
-	pub fn is_none(&self) -> bool{
-		return self.index == REF_NULL;
-	}
-	pub fn unwrap(self) ->IndexedRef<'a, T>{
-		if self.is_none(){
-			panic!("Attempt to deref null value");
-		}
-		return IndexedRef{index:self.index, _phantom:PhantomData, _lifetime:PhantomData};
-	}
-
+impl<'a, T> NullableIndexedRef<'a, T> {
+    pub fn some(index_ref: IndexedRef<'a, T>) -> NullableIndexedRef<'a, T> {
+        return NullableIndexedRef {
+            index: index_ref.index,
+            _phantom: PhantomData,
+            _lifetime: PhantomData,
+        };
+    }
+    pub const fn none() -> NullableIndexedRef<'a, T> {
+        return NullableIndexedRef {
+            index: REF_NULL,
+            _phantom: PhantomData,
+            _lifetime: PhantomData,
+        };
+    }
+    pub const fn is_some(&self) -> bool {
+        return self.index != REF_NULL;
+    }
+    pub const fn is_none(&self) -> bool {
+        return self.index == REF_NULL;
+    }
+    pub fn unwrap(self) -> IndexedRef<'a, T> {
+        if self.is_none() {
+            panic!("Attempt to deref null value");
+        }
+        return IndexedRef {
+            index: self.index,
+            _phantom: PhantomData,
+            _lifetime: PhantomData,
+        };
+    }
 }
-
 
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]

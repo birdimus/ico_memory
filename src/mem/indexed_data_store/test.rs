@@ -32,7 +32,7 @@ mod test {
                 v.push(9);
                 let tmp = ids.store(v);
                 hr = ids.retain(tmp).unwrap();
-                _rr = unsafe{ids.get(&hr)};
+                _rr = unsafe { ids.get(&hr) };
             }
         }
         //NOTE - this should be a compiler error, and is!
@@ -68,7 +68,7 @@ mod test {
 
                     for i in 0..1024 {
                         let q = ids.retain(handles[i]).unwrap();
-                        assert_eq!(unsafe{ids.get(&q)[0]}, i as u32);
+                        assert_eq!(unsafe { ids.get(&q)[0] }, i as u32);
                         ids.release(q);
                     }
                     for i in 0..1024 {
@@ -109,7 +109,7 @@ mod test {
                 for j in 0..k + 1 {
                     if j == k {
                         let q = ids.retain(handles[i + 1024 * j]).unwrap();
-                        assert_eq!(unsafe{ids.get(&q)[0]}, i as u32);
+                        assert_eq!(unsafe { ids.get(&q)[0] }, i as u32);
                         ids.release(q);
                     } else {
                         assert_eq!(ids.retain(handles[i + 1024 * j]).is_none(), true);
