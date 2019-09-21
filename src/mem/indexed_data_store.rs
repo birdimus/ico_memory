@@ -133,13 +133,27 @@ impl<'a, T> IndexedDataStore<'a, T> {
             //return data.data.as_ptr().as_ref();
         }
     }
-    pub fn get(&'a self, reference: &'a IndexedRef<T>) -> &'a T {
-        unsafe {
+
+    /// It is imperative users not hold these references
+    pub unsafe fn get(&'a self, reference: &'a IndexedRef<T>) -> &'a mut T {
+        // unsafe {
             let data = self.get_data(reference.index);
-            return data.data.as_ptr().as_ref().unwrap();
+            return data.data.as_mut_ptr().as_mut().unwrap();
             // return self.get_raw(reference.index);
-        }
+        // }
     }
+
+ //    pub fn invoke<F>(&'a self, reference: &'a IndexedRef<T>, closure: F)->u32
+	//     where F: Fn(&mut T)->u32 {
+
+	//     unsafe {
+ //            let data = self.get_data(reference.index);
+ //            let t_value = data.data.as_mut_ptr().as_mut().unwrap();
+ //            return closure(t_value);
+ //            // return self.get_raw(reference.index);
+ //        }
+	    
+	// }
 
     //since we already have a reference, it's safe to get another
     pub fn clone(&'a self, reference: &'a IndexedRef<T>) -> IndexedRef<T> {
