@@ -31,7 +31,7 @@ mod test {
                 let mut v = Vec::<u32>::with_capacity(1);
                 v.push(9);
                 let tmp = ids.store(v);
-                hr = ids.retain(tmp).unwrap();
+                hr = ids.retain(tmp).get().unwrap();
                 _rr = unsafe { ids.get(&hr) };
             }
         }
@@ -67,7 +67,7 @@ mod test {
                     }
 
                     for i in 0..1024 {
-                        let q = ids.retain(handles[i]).unwrap();
+                        let q = ids.retain(handles[i]).get().unwrap();
                         assert_eq!(unsafe { ids.get(&q)[0] }, i as u32);
                         ids.release(q);
                     }
@@ -108,11 +108,11 @@ mod test {
             for i in 0..1024 {
                 for j in 0..k + 1 {
                     if j == k {
-                        let q = ids.retain(handles[i + 1024 * j]).unwrap();
+                        let q = ids.retain(handles[i + 1024 * j]).get().unwrap();
                         assert_eq!(unsafe { ids.get(&q)[0] }, i as u32);
                         ids.release(q);
                     } else {
-                        assert_eq!(ids.retain(handles[i + 1024 * j]).is_none(), true);
+                        assert_eq!(ids.retain(handles[i + 1024 * j]).is_null(), true);
                     }
                 }
             }

@@ -5,6 +5,8 @@ use core::mem::MaybeUninit;
 use core::ptr;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
+use crate::mem::nullable::MaybeNull;
+use crate::mem::nullable::Nullable;
 const INITIALIZED: u32 = 1; //'in use' flag
 const UNIQUE_OFFSET: u32 = 2; // unique value
 
@@ -29,42 +31,29 @@ pub struct ResourceRef<'a, T> {
     _lifetime: PhantomData<&'a T>,
 }
 const REF_NULL: u32 = 0xFFFFFFFF;
-#[derive(PartialEq, Eq, Debug, Hash)]
-pub struct NullableResourceRef<'a, T> {
-    index: u32,
-    // unique : u32,
-    _phantom: PhantomData<*mut u8>, //to disable send and sync
-    _lifetime: PhantomData<&'a T>,
-}
-
-impl<'a, T> NullableResourceRef<'a, T> {
-    pub fn some(index_ref: ResourceRef<'a, T>) -> NullableResourceRef<'a, T> {
-        return NullableResourceRef {
-            index: index_ref.index,
-            _phantom: PhantomData,
+impl<'a, T> MaybeNull for ResourceRef<'a, T>{
+    fn is_null(&self)->bool{
+    	return self.index == REF_NULL;
+    }
+     fn null()->ResourceRef<'a, T>{
+    	return  ResourceRef {
+       	 	index: REF_NULL, 
+        	_phantom: PhantomData,
             _lifetime: PhantomData,
         };
     }
-    pub const fn none() -> NullableResourceRef<'a, T> {
-        return NullableResourceRef {
-            index: REF_NULL,
-            _phantom: PhantomData,
+    /// Takes the value out , leaving a null in its place.
+    fn take(&mut self)->ResourceRef<'a, T>{
+    	return  ResourceRef {
+       	 	index: core::mem::replace(&mut self.index, REF_NULL), 
+        	_phantom: PhantomData,
             _lifetime: PhantomData,
         };
     }
-    pub const fn is_some(&self) -> bool {
-        return self.index != REF_NULL;
-    }
-    pub const fn is_none(&self) -> bool {
-        return self.index == REF_NULL;
-    }
-    pub fn unwrap(self) -> ResourceRef<'a, T> {
-        if self.is_none() {
-            panic!("Attempt to deref null value");
-        }
-        return ResourceRef {
-            index: self.index,
-            _phantom: PhantomData,
+    fn replace(&mut self, new : ResourceRef<'a, T>)->ResourceRef<'a, T>{
+    	return  ResourceRef {
+       	 	index: core::mem::replace(&mut self.index, new.index), 
+        	_phantom: PhantomData,
             _lifetime: PhantomData,
         };
     }
@@ -207,16 +196,16 @@ impl<'a, T: Sync> ResourceManager<'a, T> {
         }
     }
     /// Get a reference counted reference to the object based on a handle.  Returns None if the handle points to empty space.
-    pub fn retain(&'a self, handle: ResourceHandle) -> NullableResourceRef<'a, T> {
+    pub fn retain(&'a self, handle: ResourceHandle) -> Nullable<ResourceRef<'a, T>> {
         unsafe {
             self.increment_ref_count(handle.index);
             let data = self.get_data(handle.index);
             if data.unique_id.load(Ordering::Acquire) != handle.unique {
                 self.decrement_ref_count(handle.index);
                 // println!("none {} {}", index, unique);
-                return NullableResourceRef::none();
+                return Nullable::null();
             } else {
-                return NullableResourceRef::some(ResourceRef {
+                return Nullable::new(ResourceRef {
                     index: handle.index,
                     _phantom: PhantomData,
                     _lifetime: PhantomData,

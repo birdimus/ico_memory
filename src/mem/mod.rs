@@ -4,7 +4,7 @@ mod memory_pool;
 mod mmap;
 mod queue;
 mod resource_manager;
-
+mod nullable;
 pub use queue::QueueU32;
 pub use queue::QueueUsize;
 pub use queue::QUEUE_NULL;
@@ -14,11 +14,10 @@ pub use indexed_data_store::IndexedData;
 pub use indexed_data_store::IndexedDataStore;
 pub use indexed_data_store::IndexedHandle;
 pub use indexed_data_store::IndexedRef;
-pub use indexed_data_store::NullableIndexedRef;
+pub use nullable::Nullable;
 
 pub use memory_manager::MemoryManager;
 pub use memory_pool::MemoryPool;
-pub use resource_manager::NullableResourceRef;
 pub use resource_manager::ResourceData;
 pub use resource_manager::ResourceHandle;
 pub use resource_manager::ResourceManager;

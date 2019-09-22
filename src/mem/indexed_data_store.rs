@@ -2,7 +2,8 @@ use core::cell::Cell;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::ptr;
-
+use crate::mem::nullable::MaybeNull;
+use crate::mem::nullable::Nullable;
 pub struct IndexedData<T> {
     data: MaybeUninit<T>,
     unique: Cell<u32>,
@@ -115,17 +116,17 @@ impl<'a, T> IndexedDataStore<'a, T> {
 
     /// Retain a strong reference.  If no reference exists returns None, otherwise, this increments the reference count and returns the reference.  
     /// It is up to the user to manually release() the returned reference when they are finished.
-    pub fn retain(&'a self, handle: IndexedHandle) -> NullableIndexedRef<T> {
+    pub fn retain(&'a self, handle: IndexedHandle) -> Nullable<IndexedRef<'a, T>>{
         if handle.index >= self.high_water_mark.get() {
-            return NullableIndexedRef::none();
+            return Nullable::null();
         }
         unsafe {
             let data = self.get_data(handle.index);
             if !data.is_match(handle.unique) {
-                return NullableIndexedRef::none();
+                return Nullable::null();
             }
             data.ref_count.set(data.ref_count.get() + 1);
-            return NullableIndexedRef::some(IndexedRef {
+            return Nullable::new(IndexedRef {
                 index: handle.index,
                 _phantom: PhantomData,
                 _lifetime: PhantomData,
@@ -242,6 +243,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
 
 impl<'a, T> Drop for IndexedDataStore<'a, T> {
     fn drop(&mut self) {
+    	// let t : Nullable<IndexedRef<'a, T>> = Nullable::null();
         //using CAPACITY here is a big, big error - freeing uninitialized memory
         for i in 0..self.high_water_mark.get() {
             unsafe {
@@ -263,46 +265,34 @@ pub struct IndexedRef<'a, T> {
     _lifetime: PhantomData<&'a T>,
 }
 
-#[derive(PartialEq, Eq, Debug, Hash)]
-pub struct NullableIndexedRef<'a, T> {
-    index: u32,
-    // unique : u32,
-    _phantom: PhantomData<*mut u8>, //to disable send and sync
-    _lifetime: PhantomData<&'a T>,
+impl<'a, T> MaybeNull for IndexedRef<'a, T>{
+    fn is_null(&self)->bool{
+    	return self.index == REF_NULL;
+    }
+     fn null()->IndexedRef<'a, T>{
+    	return  IndexedRef {
+       	 	index: REF_NULL, 
+        	_phantom: PhantomData,
+            _lifetime: PhantomData,
+        };
+    }
+    /// Takes the value out , leaving a null in its place.
+    fn take(&mut self)->IndexedRef<'a, T>{
+    	return  IndexedRef {
+       	 	index: core::mem::replace(&mut self.index, REF_NULL), 
+        	_phantom: PhantomData,
+            _lifetime: PhantomData,
+        };
+    }
+    fn replace(&mut self, new : IndexedRef<'a, T>)->IndexedRef<'a, T>{
+    	return  IndexedRef {
+       	 	index: core::mem::replace(&mut self.index, new.index), 
+        	_phantom: PhantomData,
+            _lifetime: PhantomData,
+        };
+    }
 }
 
-impl<'a, T> NullableIndexedRef<'a, T> {
-    pub fn some(index_ref: IndexedRef<'a, T>) -> NullableIndexedRef<'a, T> {
-        return NullableIndexedRef {
-            index: index_ref.index,
-            _phantom: PhantomData,
-            _lifetime: PhantomData,
-        };
-    }
-    pub const fn none() -> NullableIndexedRef<'a, T> {
-        return NullableIndexedRef {
-            index: REF_NULL,
-            _phantom: PhantomData,
-            _lifetime: PhantomData,
-        };
-    }
-    pub const fn is_some(&self) -> bool {
-        return self.index != REF_NULL;
-    }
-    pub const fn is_none(&self) -> bool {
-        return self.index == REF_NULL;
-    }
-    pub fn unwrap(self) -> IndexedRef<'a, T> {
-        if self.is_none() {
-            panic!("Attempt to deref null value");
-        }
-        return IndexedRef {
-            index: self.index,
-            _phantom: PhantomData,
-            _lifetime: PhantomData,
-        };
-    }
-}
 
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]

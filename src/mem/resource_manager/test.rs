@@ -57,7 +57,7 @@ mod test {
                 let tmp = MANAGER.store(Simple { data: i }).unwrap();
                 t.push(tmp);
 
-                q.push(MANAGER.retain(tmp).unwrap());
+                q.push(MANAGER.retain(tmp).get().unwrap());
             }
 
             for i in 0..16 {
@@ -90,7 +90,7 @@ mod test {
                         let tmp = MANAGER.store(Simple { data: i }).unwrap();
                         t.push(tmp);
 
-                        q.push(MANAGER.retain(tmp).unwrap());
+                        q.push(MANAGER.retain(tmp).get().unwrap());
                     }
 
                     for i in 0..256 {
