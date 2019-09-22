@@ -1,3 +1,5 @@
+use crate::mem::nullable::MaybeNull;
+use crate::mem::nullable::Nullable;
 use crate::mem::QueueU32;
 use crate::sync::Unique;
 use core::marker::PhantomData;
@@ -5,8 +7,6 @@ use core::mem::MaybeUninit;
 use core::ptr;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
-use crate::mem::nullable::MaybeNull;
-use crate::mem::nullable::Nullable;
 const INITIALIZED: u32 = 1; //'in use' flag
 const UNIQUE_OFFSET: u32 = 2; // unique value
 
@@ -31,29 +31,29 @@ pub struct ResourceRef<'a, T> {
     _lifetime: PhantomData<&'a T>,
 }
 const REF_NULL: u32 = 0xFFFFFFFF;
-impl<'a, T> MaybeNull for ResourceRef<'a, T>{
-    fn is_null(&self)->bool{
-    	return self.index == REF_NULL;
+impl<'a, T> MaybeNull for ResourceRef<'a, T> {
+    fn is_null(&self) -> bool {
+        return self.index == REF_NULL;
     }
-     fn null()->ResourceRef<'a, T>{
-    	return  ResourceRef {
-       	 	index: REF_NULL, 
-        	_phantom: PhantomData,
+    fn null() -> ResourceRef<'a, T> {
+        return ResourceRef {
+            index: REF_NULL,
+            _phantom: PhantomData,
             _lifetime: PhantomData,
         };
     }
     /// Takes the value out , leaving a null in its place.
-    fn take(&mut self)->ResourceRef<'a, T>{
-    	return  ResourceRef {
-       	 	index: core::mem::replace(&mut self.index, REF_NULL), 
-        	_phantom: PhantomData,
+    fn take(&mut self) -> ResourceRef<'a, T> {
+        return ResourceRef {
+            index: core::mem::replace(&mut self.index, REF_NULL),
+            _phantom: PhantomData,
             _lifetime: PhantomData,
         };
     }
-    fn replace(&mut self, new : ResourceRef<'a, T>)->ResourceRef<'a, T>{
-    	return  ResourceRef {
-       	 	index: core::mem::replace(&mut self.index, new.index), 
-        	_phantom: PhantomData,
+    fn replace(&mut self, new: ResourceRef<'a, T>) -> ResourceRef<'a, T> {
+        return ResourceRef {
+            index: core::mem::replace(&mut self.index, new.index),
+            _phantom: PhantomData,
             _lifetime: PhantomData,
         };
     }

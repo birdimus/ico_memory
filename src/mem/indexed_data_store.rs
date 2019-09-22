@@ -1,9 +1,9 @@
+use crate::mem::nullable::MaybeNull;
+use crate::mem::nullable::Nullable;
 use core::cell::Cell;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::ptr;
-use crate::mem::nullable::MaybeNull;
-use crate::mem::nullable::Nullable;
 pub struct IndexedData<T> {
     data: MaybeUninit<T>,
     unique: Cell<u32>,
@@ -116,7 +116,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
 
     /// Retain a strong reference.  If no reference exists returns None, otherwise, this increments the reference count and returns the reference.  
     /// It is up to the user to manually release() the returned reference when they are finished.
-    pub fn retain(&'a self, handle: IndexedHandle) -> Nullable<IndexedRef<'a, T>>{
+    pub fn retain(&'a self, handle: IndexedHandle) -> Nullable<IndexedRef<'a, T>> {
         if handle.index >= self.high_water_mark.get() {
             return Nullable::null();
         }
@@ -243,7 +243,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
 
 impl<'a, T> Drop for IndexedDataStore<'a, T> {
     fn drop(&mut self) {
-    	// let t : Nullable<IndexedRef<'a, T>> = Nullable::null();
+        // let t : Nullable<IndexedRef<'a, T>> = Nullable::null();
         //using CAPACITY here is a big, big error - freeing uninitialized memory
         for i in 0..self.high_water_mark.get() {
             unsafe {
@@ -265,34 +265,33 @@ pub struct IndexedRef<'a, T> {
     _lifetime: PhantomData<&'a T>,
 }
 
-impl<'a, T> MaybeNull for IndexedRef<'a, T>{
-    fn is_null(&self)->bool{
-    	return self.index == REF_NULL;
+impl<'a, T> MaybeNull for IndexedRef<'a, T> {
+    fn is_null(&self) -> bool {
+        return self.index == REF_NULL;
     }
-     fn null()->IndexedRef<'a, T>{
-    	return  IndexedRef {
-       	 	index: REF_NULL, 
-        	_phantom: PhantomData,
+    fn null() -> IndexedRef<'a, T> {
+        return IndexedRef {
+            index: REF_NULL,
+            _phantom: PhantomData,
             _lifetime: PhantomData,
         };
     }
     /// Takes the value out , leaving a null in its place.
-    fn take(&mut self)->IndexedRef<'a, T>{
-    	return  IndexedRef {
-       	 	index: core::mem::replace(&mut self.index, REF_NULL), 
-        	_phantom: PhantomData,
+    fn take(&mut self) -> IndexedRef<'a, T> {
+        return IndexedRef {
+            index: core::mem::replace(&mut self.index, REF_NULL),
+            _phantom: PhantomData,
             _lifetime: PhantomData,
         };
     }
-    fn replace(&mut self, new : IndexedRef<'a, T>)->IndexedRef<'a, T>{
-    	return  IndexedRef {
-       	 	index: core::mem::replace(&mut self.index, new.index), 
-        	_phantom: PhantomData,
+    fn replace(&mut self, new: IndexedRef<'a, T>) -> IndexedRef<'a, T> {
+        return IndexedRef {
+            index: core::mem::replace(&mut self.index, new.index),
+            _phantom: PhantomData,
             _lifetime: PhantomData,
         };
     }
 }
-
 
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
