@@ -22,7 +22,11 @@ pub struct ResourceHandle {
     index: u32,
     unique: u32,
 }
-
+impl ResourceHandle {
+    pub fn is_null(self) -> bool {
+        return self.index == REF_NULL;
+    }
+}
 #[derive(PartialEq, Eq, Debug, Hash)]
 pub struct ResourceRef<'a, T> {
     index: u32,
