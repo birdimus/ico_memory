@@ -72,4 +72,17 @@ impl<T: MaybeNull> Nullable<T> {
             value: self.value.replace(value),
         };
     }
+    pub fn map<U: MaybeNull, F>(self, f: F) -> Nullable<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        if !self.is_null() {
+            return Nullable::<U> {
+                value: f(self.value),
+            };
+        }
+        return Nullable::<U> {
+            value: MaybeNull::null(),
+        };
+    }
 }
