@@ -34,6 +34,15 @@ pub struct ResourceRef<'a, T> {
     _phantom: PhantomData<*mut u8>, //to disable send and sync
     _lifetime: PhantomData<&'a T>,
 }
+impl<'a, T> ResourceRef<'a, T> {
+    pub const fn null_const() -> ResourceRef<'a, T> {
+        return ResourceRef {
+            index: REF_NULL,
+            _phantom: PhantomData,
+            _lifetime: PhantomData,
+        };
+    }
+}
 const REF_NULL: u32 = 0xFFFFFFFF;
 impl<'a, T> MaybeNull for ResourceRef<'a, T> {
     fn is_null(&self) -> bool {
@@ -46,6 +55,7 @@ impl<'a, T> MaybeNull for ResourceRef<'a, T> {
             _lifetime: PhantomData,
         };
     }
+
     /// Takes the value out , leaving a null in its place.
     fn take(&mut self) -> ResourceRef<'a, T> {
         return ResourceRef {

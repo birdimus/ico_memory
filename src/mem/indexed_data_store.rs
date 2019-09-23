@@ -264,7 +264,15 @@ pub struct IndexedRef<'a, T> {
     _phantom: PhantomData<*mut u8>, //to disable send and sync
     _lifetime: PhantomData<&'a T>,
 }
-
+impl<'a, T> IndexedRef<'a, T> {
+    pub const fn null_const() -> IndexedRef<'a, T> {
+        return IndexedRef {
+            index: REF_NULL,
+            _phantom: PhantomData,
+            _lifetime: PhantomData,
+        };
+    }
+}
 impl<'a, T> MaybeNull for IndexedRef<'a, T> {
     fn is_null(&self) -> bool {
         return self.index == REF_NULL;
