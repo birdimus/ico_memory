@@ -11,12 +11,12 @@ pub trait MaybeNull: Sized {
 }
 
 #[derive(Copy, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
-pub struct Nullable<T: MaybeNull> {
+pub struct Nullable<T> {
     value: T,
 }
 impl<T> Clone for Nullable<T>
 where
-    T: MaybeNull + Clone,
+    T:  Clone,
 {
     #[inline]
     fn clone(&self) -> Self {
@@ -24,11 +24,15 @@ where
     }
 }
 
-impl<T: MaybeNull> Nullable<T> {
+impl<T> Nullable<T> {
     #[inline]
-    pub fn new(value: T) -> Nullable<T> {
+    pub const fn new(value: T) -> Nullable<T> {
         return Nullable { value: value };
     }
+
+}
+impl<T: MaybeNull> Nullable<T> {
+
     #[inline]
     pub fn null() -> Nullable<T> {
         return Nullable {
