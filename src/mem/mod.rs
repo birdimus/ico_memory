@@ -15,6 +15,7 @@ pub use indexed_data_store::IndexedDataStore;
 pub use indexed_data_store::IndexedHandle;
 pub use indexed_data_store::IndexedRef;
 pub use nullable::Nullable;
+pub use nullable::MaybeNull;
 
 pub use memory_manager::MemoryManager;
 pub use memory_pool::MemoryPool;
