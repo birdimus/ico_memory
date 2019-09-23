@@ -210,14 +210,14 @@ impl<'a, T> IndexedDataStore<'a, T> {
                     _phantom: PhantomData,
                 };
             } else {
-                panic!("Out of data storage.");
+                // panic!("Out of data storage.");
                 // #[cfg(any(test, feature = "std"))]
                 // std::process::abort();
-                // return IndexedHandle {
-                // 	index:SLOT_NULL,
-                // 	unique:0,
-                // 	_phantom: PhantomData,
-                // };
+                return IndexedHandle {
+                    index: SLOT_NULL,
+                    unique: 0,
+                    _phantom: PhantomData,
+                };
             }
         }
     }
@@ -301,5 +301,10 @@ pub struct IndexedHandle {
     _phantom: PhantomData<*mut u8>, //to disable send and sync
 }
 
+impl IndexedHandle {
+    pub fn is_null(self) -> bool {
+        return self.index == REF_NULL;
+    }
+}
 #[cfg(test)]
 mod test;

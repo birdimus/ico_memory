@@ -110,7 +110,7 @@ impl<'a, T> ResourceManager<'a, T> {
     }
 
     /// Store a T in the resource manager.  If space exists, this returns a handle to the object.  Otherwise returns None.
-    pub fn store(&self, obj: T) -> Option<ResourceHandle> {
+    pub fn store(&self, obj: T) -> ResourceHandle {
         let tmp = self.free_queue.dequeue();
         let index;
         let unique;
@@ -122,7 +122,11 @@ impl<'a, T> ResourceManager<'a, T> {
             if next >= self.capacity {
                 // Ensure the counter does not overflow by continually incrementing.
                 self.high_water_mark.store(self.capacity, Ordering::Relaxed);
-                return None;
+                // return None;
+                return ResourceHandle {
+                    index: REF_NULL,
+                    unique: 0,
+                };
             }
 
             index = next;
@@ -138,15 +142,18 @@ impl<'a, T> ResourceManager<'a, T> {
 
         data.ref_count.store(1, Ordering::Release);
 
-        return Some(ResourceHandle {
+        return ResourceHandle {
             index: index,
             unique: unique,
-        });
+        };
     }
 
     /// Release the local reference to the object stored at the handle location.  
     /// The object will not actually be dropped until all references are released, however no handles will return the object.
     pub fn free(&self, handle: ResourceHandle) -> bool {
+        if handle.index == REF_NULL {
+            return false;
+        }
         unsafe {
             let next = (handle.unique & !INITIALIZED).wrapping_add(UNIQUE_OFFSET);
             let data = self.get_data(handle.index);
@@ -197,6 +204,9 @@ impl<'a, T: Sync> ResourceManager<'a, T> {
     }
     /// Get a reference counted reference to the object based on a handle.  Returns None if the handle points to empty space.
     pub fn retain(&'a self, handle: ResourceHandle) -> Nullable<ResourceRef<'a, T>> {
+        if handle.index == REF_NULL {
+            return Nullable::null();
+        }
         unsafe {
             self.increment_ref_count(handle.index);
             let data = self.get_data(handle.index);

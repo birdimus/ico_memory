@@ -39,7 +39,7 @@ mod test {
         for _k in 0..65535 {
             let mut t: Vec<ResourceHandle> = Vec::new();
             for i in 0..16 {
-                t.push(MANAGER.store(Simple { data: i }).unwrap());
+                t.push(MANAGER.store(Simple { data: i }));
             }
             for i in 0..16 {
                 assert_eq!(MANAGER.free(t.pop().unwrap()), true, "{}", i);
@@ -54,7 +54,7 @@ mod test {
             let mut t: Vec<ResourceHandle> = Vec::new();
             let mut q: Vec<ResourceRef<Simple>> = Vec::new();
             for i in 0..16 {
-                let tmp = MANAGER.store(Simple { data: i }).unwrap();
+                let tmp = MANAGER.store(Simple { data: i });
                 t.push(tmp);
 
                 q.push(MANAGER.retain(tmp).get().unwrap());
@@ -87,7 +87,7 @@ mod test {
                     let mut t: Vec<ResourceHandle> = Vec::new();
                     let mut q: Vec<ResourceRef<Simple>> = Vec::new();
                     for i in 0..256 {
-                        let tmp = MANAGER.store(Simple { data: i }).unwrap();
+                        let tmp = MANAGER.store(Simple { data: i });
                         t.push(tmp);
 
                         q.push(MANAGER.retain(tmp).get().unwrap());
