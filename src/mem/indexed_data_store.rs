@@ -157,7 +157,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
     // }
 
     //since we already have a reference, it's safe to get another
-    pub fn clone(&'a self, reference: &'a IndexedRef<T>) -> IndexedRef<T> {
+    pub fn clone(&'a self, reference: &IndexedRef<'a, T>) -> IndexedRef<'a, T> {
         unsafe {
             let data = self.get_data(reference.index);
             data.ref_count.set(data.ref_count.get() + 1);
