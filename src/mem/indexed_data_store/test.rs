@@ -16,6 +16,11 @@ mod test {
     static mut _IDS: IndexedDataStore<u32> =
         unsafe { IndexedDataStore::from_raw(&_BUFFER_PTR, 1024) };
 
+
+    #[test]
+    fn size() {
+        assert_eq!(core::mem::size_of::<Option<IndexedRef<Vec<u32>>>>(), core::mem::size_of::<IndexedRef<Vec<u32>>>());
+    }
     #[test]
     fn lifetime() {
         let hr: IndexedRef<Vec<u32>>;
@@ -30,8 +35,8 @@ mod test {
                     unsafe { IndexedDataStore::from_raw(&ptr, 1024) };
                 let mut v = Vec::<u32>::with_capacity(1);
                 v.push(9);
-                let tmp = ids.store(v);
-                hr = ids.retain(tmp).get().unwrap();
+                let tmp = ids.store(v).unwrap();
+                hr = ids.retain(tmp).unwrap();
                 _rr = unsafe { ids.get(&hr) };
             }
         }
@@ -55,7 +60,7 @@ mod test {
                     for i in 0..1024 {
                         let mut v = Vec::<u32>::with_capacity(1);
                         v.push(i);
-                        let tmp = ids.store(v);
+                        let tmp = ids.store(v).unwrap();
                         handles.push(tmp);
                         if k == 0 {
                             assert_eq!(ids.high_water_mark(), i + 1);
@@ -67,7 +72,7 @@ mod test {
                     }
 
                     for i in 0..1024 {
-                        let q = ids.retain(handles[i]).get().unwrap();
+                        let q = ids.retain(handles[i]).unwrap();
                         assert_eq!(unsafe { ids.get(&q)[0] }, i as u32);
                         ids.release(q);
                     }
@@ -102,17 +107,17 @@ mod test {
             for i in 0..1024 {
                 let mut v = Vec::<u32>::with_capacity(1);
                 v.push(i);
-                handles.push(ids.store(v));
+                handles.push(ids.store(v).unwrap());
             }
 
             for i in 0..1024 {
                 for j in 0..k + 1 {
                     if j == k {
-                        let q = ids.retain(handles[i + 1024 * j]).get().unwrap();
+                        let q = ids.retain(handles[i + 1024 * j]).unwrap();
                         assert_eq!(unsafe { ids.get(&q)[0] }, i as u32);
                         ids.release(q);
                     } else {
-                        assert_eq!(ids.retain(handles[i + 1024 * j]).is_null(), true);
+                        assert_eq!(ids.retain(handles[i + 1024 * j]), None);
                     }
                 }
             }

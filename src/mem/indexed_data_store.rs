@@ -1,9 +1,9 @@
-use crate::mem::nullable::MaybeNull;
-use crate::mem::nullable::Nullable;
+
 use core::cell::Cell;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::ptr;
+use core::num::NonZeroU32;
 pub struct IndexedData<T> {
     data: MaybeUninit<T>,
     unique: Cell<u32>,
@@ -36,7 +36,10 @@ impl<T> IndexedData<T> {
         return self.unique.get() == unique;
     }
 }
+
 const SLOT_NULL: u32 = 0xFFFFFFFF;
+const NON_NULL_BIT: u32 = 1<<31;
+const REF_MASK: u32 = !NON_NULL_BIT;
 
 pub struct IndexedDataStore<'a, T> {
     buffer: *mut MaybeUninit<IndexedData<T>>, //definitely not ever thread safe.
@@ -116,18 +119,18 @@ impl<'a, T> IndexedDataStore<'a, T> {
 
     /// Retain a strong reference.  If no reference exists returns None, otherwise, this increments the reference count and returns the reference.  
     /// It is up to the user to manually release() the returned reference when they are finished.
-    pub fn retain(&'a self, handle: IndexedHandle) -> Nullable<IndexedRef<'a, T>> {
+    pub fn retain(&'a self, handle: IndexedHandle) -> Option<IndexedRef<'a, T>> {
         if handle.index >= self.high_water_mark.get() {
-            return Nullable::null();
+            return None;
         }
         unsafe {
             let data = self.get_data(handle.index);
             if !data.is_match(handle.unique) {
-                return Nullable::null();
+                return None;
             }
             data.ref_count.set(data.ref_count.get() + 1);
-            return Nullable::new(IndexedRef {
-                index: handle.index,
+            return Some(IndexedRef {
+                index: NonZeroU32::new_unchecked(handle.index | NON_NULL_BIT),
                 _phantom: PhantomData,
                 _lifetime: PhantomData,
             });
@@ -138,7 +141,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
     /// It is imperative users not hold these references
     pub unsafe fn get(&'a self, reference: &'a IndexedRef<T>) -> &'a mut T {
         // unsafe {
-        let data = self.get_data(reference.index);
+        let data = self.get_data(reference.index.get() & REF_MASK);
         return data.data.as_mut_ptr().as_mut().unwrap();
         // return self.get_raw(reference.index);
         // }
@@ -159,7 +162,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
     //since we already have a reference, it's safe to get another
     pub fn clone(&'a self, reference: &IndexedRef<'a, T>) -> IndexedRef<'a, T> {
         unsafe {
-            let data = self.get_data(reference.index);
+            let data = self.get_data(reference.index.get() & REF_MASK);
             data.ref_count.set(data.ref_count.get() + 1);
             return IndexedRef {
                 index: reference.index,
@@ -173,12 +176,12 @@ impl<'a, T> IndexedDataStore<'a, T> {
     /// Release a strong reference.  This decrements the reference count.
     pub fn release(&'a self, reference: IndexedRef<T>) {
         unsafe {
-            self.decrement_ref_count(reference.index);
+            self.decrement_ref_count(reference.index.get() & REF_MASK);
             // return Handle{index:reference.index, unique:reference.unique, _phantom:PhantomData};
         }
     }
 
-    pub fn store(&self, value: T) -> IndexedHandle {
+    pub fn store(&self, value: T) -> Option<IndexedHandle> {
         let free = self.free_stack.get();
         if free != SLOT_NULL {
             let data = unsafe { self.get_data(free) };
@@ -188,11 +191,11 @@ impl<'a, T> IndexedDataStore<'a, T> {
 
             let active_count = self.active_count.get();
             self.active_count.set(active_count + 1);
-            return IndexedHandle {
+            return Some(IndexedHandle {
                 index: free,
                 unique: data.unique.get(),
                 _phantom: PhantomData,
-            };
+            });
         } else {
             let hwm = self.high_water_mark.get();
             if hwm < self.capacity {
@@ -204,20 +207,16 @@ impl<'a, T> IndexedDataStore<'a, T> {
 
                 let active_count = self.active_count.get();
                 self.active_count.set(active_count + 1);
-                return IndexedHandle {
+                return Some(IndexedHandle {
                     index: hwm,
                     unique: data.unique.get(),
                     _phantom: PhantomData,
-                };
+                });
             } else {
                 // panic!("Out of data storage.");
                 // #[cfg(any(test, feature = "std"))]
                 // std::process::abort();
-                return IndexedHandle {
-                    index: SLOT_NULL,
-                    unique: 0,
-                    _phantom: PhantomData,
-                };
+                return None;
             }
         }
     }
@@ -256,23 +255,23 @@ impl<'a, T> Drop for IndexedDataStore<'a, T> {
         }
     }
 }
-const REF_NULL: u32 = 0xFFFFFFFF;
+// const REF_NULL: u32 = 0xFFFFFFFF;
 #[derive(Debug, Hash)]
 pub struct IndexedRef<'a, T> {
-    index: u32,
+    index: NonZeroU32,
     // unique : u32,
     _phantom: PhantomData<*mut u8>, //to disable send and sync
     _lifetime: PhantomData<&'a T>,
 }
-impl<'a, T> IndexedRef<'a, T> {
-    pub const fn null_const() -> IndexedRef<'a, T> {
-        return IndexedRef {
-            index: REF_NULL,
-            _phantom: PhantomData,
-            _lifetime: PhantomData,
-        };
-    }
-}
+// impl<'a, T> IndexedRef<'a, T> {
+//     pub const fn null_const() -> IndexedRef<'a, T> {
+//         return IndexedRef {
+//             index: REF_NULL,
+//             _phantom: PhantomData,
+//             _lifetime: PhantomData,
+//         };
+//     }
+// }
 impl<'a, T> PartialEq for IndexedRef<'a, T> {
     fn eq(&self, other: &Self) -> bool {
         return self.index == other.index;
@@ -280,33 +279,33 @@ impl<'a, T> PartialEq for IndexedRef<'a, T> {
 }
 impl<'a, T> Eq for IndexedRef<'a, T> {}
 
-impl<'a, T> MaybeNull for IndexedRef<'a, T> {
-    fn is_null(&self) -> bool {
-        return self.index == REF_NULL;
-    }
-    fn null() -> IndexedRef<'a, T> {
-        return IndexedRef {
-            index: REF_NULL,
-            _phantom: PhantomData,
-            _lifetime: PhantomData,
-        };
-    }
-    /// Takes the value out , leaving a null in its place.
-    fn take(&mut self) -> IndexedRef<'a, T> {
-        return IndexedRef {
-            index: core::mem::replace(&mut self.index, REF_NULL),
-            _phantom: PhantomData,
-            _lifetime: PhantomData,
-        };
-    }
-    fn replace(&mut self, new: IndexedRef<'a, T>) -> IndexedRef<'a, T> {
-        return IndexedRef {
-            index: core::mem::replace(&mut self.index, new.index),
-            _phantom: PhantomData,
-            _lifetime: PhantomData,
-        };
-    }
-}
+// impl<'a, T> MaybeNull for IndexedRef<'a, T> {
+//     fn is_null(&self) -> bool {
+//         return self.index == REF_NULL;
+//     }
+//     fn null() -> IndexedRef<'a, T> {
+//         return IndexedRef {
+//             index: REF_NULL,
+//             _phantom: PhantomData,
+//             _lifetime: PhantomData,
+//         };
+//     }
+//     /// Takes the value out , leaving a null in its place.
+//     fn take(&mut self) -> IndexedRef<'a, T> {
+//         return IndexedRef {
+//             index: core::mem::replace(&mut self.index, REF_NULL),
+//             _phantom: PhantomData,
+//             _lifetime: PhantomData,
+//         };
+//     }
+//     fn replace(&mut self, new: IndexedRef<'a, T>) -> IndexedRef<'a, T> {
+//         return IndexedRef {
+//             index: core::mem::replace(&mut self.index, new.index),
+//             _phantom: PhantomData,
+//             _lifetime: PhantomData,
+//         };
+//     }
+// }
 
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -316,10 +315,10 @@ pub struct IndexedHandle {
     _phantom: PhantomData<*mut u8>, //to disable send and sync
 }
 
-impl IndexedHandle {
-    pub fn is_null(self) -> bool {
-        return self.index == REF_NULL;
-    }
-}
+// impl IndexedHandle {
+//     pub fn is_null(self) -> bool {
+//         return self.index == REF_NULL;
+//     }
+// }
 #[cfg(test)]
 mod test;
