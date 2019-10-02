@@ -257,7 +257,7 @@ impl<'a, T> Drop for IndexedDataStore<'a, T> {
     }
 }
 const REF_NULL: u32 = 0xFFFFFFFF;
-#[derive(PartialEq, Eq, Debug, Hash)]
+#[derive(Debug, Hash)]
 pub struct IndexedRef<'a, T> {
     index: u32,
     // unique : u32,
@@ -273,6 +273,13 @@ impl<'a, T> IndexedRef<'a, T> {
         };
     }
 }
+impl<'a, T> PartialEq for IndexedRef<'a, T> {
+    fn eq(&self, other: &Self) -> bool {
+        return self.index == other.index;
+    }
+}
+impl<'a, T> Eq for IndexedRef<'a, T> {}
+
 impl<'a, T> MaybeNull for IndexedRef<'a, T> {
     fn is_null(&self) -> bool {
         return self.index == REF_NULL;

@@ -27,13 +27,19 @@ impl ResourceHandle {
         return self.index == REF_NULL;
     }
 }
-#[derive(PartialEq, Eq, Debug, Hash)]
+#[derive(Debug, Hash)]
 pub struct ResourceRef<'a, T> {
     index: u32,
     // unique : u32,
     _phantom: PhantomData<*mut u8>, //to disable send and sync
     _lifetime: PhantomData<&'a T>,
 }
+impl<'a, T> PartialEq for ResourceRef<'a, T> {
+    fn eq(&self, other: &Self) -> bool {
+        return self.index == other.index;
+    }
+}
+impl<'a, T> Eq for ResourceRef<'a, T> {}
 impl<'a, T> ResourceRef<'a, T> {
     pub const fn null_const() -> ResourceRef<'a, T> {
         return ResourceRef {
