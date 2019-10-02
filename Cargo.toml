@@ -1,6 +1,6 @@
 [package]
 name = "ico_memory"
-version = "0.1.17"
+version = "0.1.20"
 authors = ["Brian Kehrer <brian.kehrer@gmail.com>"]
 edition = "2018"
 license = "MPL-2.0"
