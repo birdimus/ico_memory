@@ -4,6 +4,9 @@ use core::cell::Cell;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::ptr;
+extern crate alloc;
+use alloc::alloc::Layout;
+
 pub struct IndexedData<T> {
     data: MaybeUninit<T>,
     unique: Cell<u32>,
@@ -49,20 +52,46 @@ pub struct IndexedDataStore<'a, T> {
 }
 
 impl<'a, T> IndexedDataStore<'a, T> {
-    pub const unsafe fn from_raw(
-        data: &'a *mut MaybeUninit<IndexedData<T>>,
-        capacity: u32,
-    ) -> IndexedDataStore<'a, T> {
-        return IndexedDataStore {
-            buffer: *data,
-            capacity: capacity,
-            high_water_mark: Cell::new(0),
-            free_stack: Cell::new(SLOT_NULL),
-            active_count: Cell::new(0),
-            destroyed_count: Cell::new(0),
-            _lifetime: PhantomData,
-        };
+    // pub const unsafe fn from_raw(
+    //     data: &'a *mut MaybeUninit<IndexedData<T>>,
+    //     capacity: u32,
+    // ) -> IndexedDataStore<'a, T> {
+    //     return IndexedDataStore {
+    //         buffer: *data,
+    //         capacity: capacity,
+    //         high_water_mark: Cell::new(0),
+    //         free_stack: Cell::new(SLOT_NULL),
+    //         active_count: Cell::new(0),
+    //         destroyed_count: Cell::new(0),
+    //         _lifetime: PhantomData,
+    //     };
+    // }
+
+    pub fn new(capacity: u32) -> Option<IndexedDataStore<'a, T>> {
+        let layout = Layout::from_size_align(
+            core::mem::size_of::<IndexedData<T>>() * capacity as usize,
+            core::mem::align_of::<IndexedData<T>>(),
+        );
+
+        match layout {
+            Ok(value) => {
+                let ptr = unsafe { alloc::alloc::alloc(value) } as *mut MaybeUninit<IndexedData<T>>;
+
+                let result = IndexedDataStore {
+                    buffer: ptr,
+                    capacity: capacity,
+                    high_water_mark: Cell::new(0),
+                    free_stack: Cell::new(SLOT_NULL),
+                    active_count: Cell::new(0),
+                    destroyed_count: Cell::new(0),
+                    _lifetime: PhantomData,
+                };
+                return Some(result);
+            }
+            Err(_x) => return None,
+        }
     }
+
     // unsafe fn get_raw(&'a self, index:u32) ->&'a T{
     // 	return self.buffer.offset(index as isize).as_ref().unwrap().data.as_ptr().as_ref().unwrap();
     // }
@@ -253,6 +282,14 @@ impl<'a, T> Drop for IndexedDataStore<'a, T> {
                     ptr::drop_in_place(data.data.as_mut_ptr());
                 }
             }
+        }
+        unsafe {
+            let layout = Layout::from_size_align_unchecked(
+                core::mem::size_of::<IndexedData<T>>() * self.capacity as usize,
+                core::mem::align_of::<IndexedData<T>>(),
+            );
+
+            alloc::alloc::dealloc(self.buffer as *mut u8, layout);
         }
     }
 }

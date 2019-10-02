@@ -1,33 +1,32 @@
 #[cfg(test)]
 mod test {
 
-    use crate::mem::IndexedData;
+    // use crate::mem::IndexedData;
     use crate::mem::IndexedDataStore;
     use crate::mem::IndexedHandle;
     use crate::mem::IndexedRef;
-    use core::mem::MaybeUninit;
-    static mut _BUFFER: [u8; 1024 * core::mem::size_of::<IndexedData<u32>>()] =
-        [0; 1024 * core::mem::size_of::<IndexedData<u32>>()];
-    static mut _BUFFER_PTR: *mut MaybeUninit<IndexedData<u32>> =
-        unsafe { &_BUFFER[0] as *const u8 as *mut u8 as *mut MaybeUninit<IndexedData<u32>> };
+    // use core::mem::MaybeUninit;
+    // static mut _BUFFER: [u8; 1024 * core::mem::size_of::<IndexedData<u32>>()] =
+    //     [0; 1024 * core::mem::size_of::<IndexedData<u32>>()];
+    // static mut _BUFFER_PTR: *mut MaybeUninit<IndexedData<u32>> =
+    //     unsafe { &_BUFFER[0] as *const u8 as *mut u8 as *mut MaybeUninit<IndexedData<u32>> };
 
     // static mut buf_ref : &mut MaybeUninit< &[IndexedData<Vec<u32>>]>= &mut BUF2;
 
-    static mut _IDS: IndexedDataStore<u32> =
-        unsafe { IndexedDataStore::from_raw(&_BUFFER_PTR, 1024) };
+    // static mut _IDS: IndexedDataStore<u32> =
+    //     unsafe { IndexedDataStore::from_raw(&_BUFFER_PTR, 1024) };
 
     #[test]
     fn lifetime() {
         let hr: IndexedRef<Vec<u32>>;
         let _rr: &Vec<u32>;
         {
-            let mut buffer2: [MaybeUninit<IndexedData<Vec<u32>>>; 1024] =
-                unsafe { MaybeUninit::uninit().assume_init() };
-            let ptr: *mut MaybeUninit<IndexedData<Vec<u32>>> = buffer2.as_mut_ptr();
+            // let mut buffer2: [MaybeUninit<IndexedData<Vec<u32>>>; 1024] =
+            //     unsafe { MaybeUninit::uninit().assume_init() };
+            // let ptr: *mut MaybeUninit<IndexedData<Vec<u32>>> = buffer2.as_mut_ptr();
 
             {
-                let ids: IndexedDataStore<Vec<u32>> =
-                    unsafe { IndexedDataStore::from_raw(&ptr, 1024) };
+                let ids: IndexedDataStore<Vec<u32>> = IndexedDataStore::new(1024).unwrap();
                 let mut v = Vec::<u32>::with_capacity(1);
                 v.push(9);
                 let tmp = ids.store(v);
@@ -42,13 +41,12 @@ mod test {
     #[test]
     fn insert_remove() {
         {
-            let mut buffer2: [MaybeUninit<IndexedData<Vec<u32>>>; 1024] =
-                unsafe { MaybeUninit::uninit().assume_init() };
-            let ptr: *mut MaybeUninit<IndexedData<Vec<u32>>> = buffer2.as_mut_ptr();
+            // let mut buffer2: [MaybeUninit<IndexedData<Vec<u32>>>; 1024] =
+            //     unsafe { MaybeUninit::uninit().assume_init() };
+            // let ptr: *mut MaybeUninit<IndexedData<Vec<u32>>> = buffer2.as_mut_ptr();
 
             {
-                let ids: IndexedDataStore<Vec<u32>> =
-                    unsafe { IndexedDataStore::from_raw(&ptr, 1024) };
+                let ids: IndexedDataStore<Vec<u32>> = IndexedDataStore::new(1024).unwrap();
 
                 let mut handles = Vec::<IndexedHandle>::with_capacity(1024);
                 for k in 0..16 {
@@ -92,10 +90,10 @@ mod test {
 
     #[test]
     fn safety() {
-        let mut buffer2: [MaybeUninit<IndexedData<Vec<u32>>>; 1024] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-        let ptr: *mut MaybeUninit<IndexedData<Vec<u32>>> = buffer2.as_mut_ptr();
-        let ids = unsafe { IndexedDataStore::from_raw(&ptr, 1024) };
+        // let mut buffer2: [MaybeUninit<IndexedData<Vec<u32>>>; 1024] =
+        //     unsafe { MaybeUninit::uninit().assume_init() };
+        // let ptr: *mut MaybeUninit<IndexedData<Vec<u32>>> = buffer2.as_mut_ptr();
+        let ids = IndexedDataStore::new(1024).unwrap();
 
         let mut handles = Vec::<IndexedHandle>::with_capacity(1024);
         for k in 0..16 {

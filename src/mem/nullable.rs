@@ -16,7 +16,7 @@ pub struct Nullable<T> {
 }
 impl<T> Clone for Nullable<T>
 where
-    T:  Clone,
+    T: Clone,
 {
     #[inline]
     fn clone(&self) -> Self {
@@ -29,10 +29,8 @@ impl<T> Nullable<T> {
     pub const fn new(value: T) -> Nullable<T> {
         return Nullable { value: value };
     }
-
 }
 impl<T: MaybeNull> Nullable<T> {
-
     #[inline]
     pub fn null() -> Nullable<T> {
         return Nullable {
