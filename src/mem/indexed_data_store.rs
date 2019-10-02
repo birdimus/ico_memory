@@ -41,17 +41,17 @@ impl<T> IndexedData<T> {
 }
 const SLOT_NULL: u32 = 0xFFFFFFFF;
 
-pub struct IndexedDataStore<'a, T> {
+pub struct IndexedDataStore<T> {
     buffer: *mut MaybeUninit<IndexedData<T>>, //definitely not ever thread safe.
     capacity: u32,
     high_water_mark: Cell<u32>,
     free_stack: Cell<u32>,
     active_count: Cell<u32>,
     destroyed_count: Cell<u32>,
-    _lifetime: PhantomData<&'a T>,
+    _lifetime: PhantomData<T>,
 }
 
-impl<'a, T> IndexedDataStore<'a, T> {
+impl<T> IndexedDataStore<T> {
     // pub const unsafe fn from_raw(
     //     data: &'a *mut MaybeUninit<IndexedData<T>>,
     //     capacity: u32,
@@ -67,7 +67,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
     //     };
     // }
 
-    pub fn new(capacity: u32) -> Option<IndexedDataStore<'a, T>> {
+    pub fn new(capacity: u32) -> Option<IndexedDataStore<T>> {
         let layout = Layout::from_size_align(
             core::mem::size_of::<IndexedData<T>>() * capacity as usize,
             core::mem::align_of::<IndexedData<T>>(),
@@ -145,7 +145,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
 
     /// Retain a strong reference.  If no reference exists returns None, otherwise, this increments the reference count and returns the reference.  
     /// It is up to the user to manually release() the returned reference when they are finished.
-    pub fn retain(&'a self, handle: IndexedHandle) -> Nullable<IndexedRef<'a, T>> {
+    pub fn retain<'a>(&'a self, handle: IndexedHandle) -> Nullable<IndexedRef<'a, T>> {
         if handle.index >= self.high_water_mark.get() {
             return Nullable::null();
         }
@@ -165,7 +165,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
     }
 
     /// It is imperative users not hold these references
-    pub unsafe fn get(&'a self, reference: &'a IndexedRef<T>) -> &'a mut T {
+    pub unsafe fn get<'a>(&'a self, reference: &'a IndexedRef<T>) -> &'a mut T {
         // unsafe {
         let data = self.get_data(reference.index);
         return data.data.as_mut_ptr().as_mut().unwrap();
@@ -186,7 +186,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
     // }
 
     //since we already have a reference, it's safe to get another
-    pub fn clone(&'a self, reference: &IndexedRef<'a, T>) -> IndexedRef<'a, T> {
+    pub fn clone<'a>(&'a self, reference: &IndexedRef<'a, T>) -> IndexedRef<'a, T> {
         unsafe {
             let data = self.get_data(reference.index);
             data.ref_count.set(data.ref_count.get() + 1);
@@ -200,7 +200,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
     }
 
     /// Release a strong reference.  This decrements the reference count.
-    pub fn release(&'a self, reference: IndexedRef<T>) {
+    pub fn release(&self, reference: IndexedRef<T>) {
         unsafe {
             self.decrement_ref_count(reference.index);
             // return Handle{index:reference.index, unique:reference.unique, _phantom:PhantomData};
@@ -270,7 +270,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
     }
 }
 
-impl<'a, T> Drop for IndexedDataStore<'a, T> {
+impl<T> Drop for IndexedDataStore<T> {
     fn drop(&mut self) {
         // let t : Nullable<IndexedRef<'a, T>> = Nullable::null();
         //using CAPACITY here is a big, big error - freeing uninitialized memory
