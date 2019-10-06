@@ -1,9 +1,8 @@
-
 use core::cell::Cell;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
-use core::ptr;
 use core::num::NonZeroU32;
+use core::ptr;
 pub struct IndexedData<T> {
     data: MaybeUninit<T>,
     unique: Cell<u32>,
@@ -12,25 +11,33 @@ pub struct IndexedData<T> {
 impl<T> IndexedData<T> {
     fn init(&mut self, value: T) {
         self.data = MaybeUninit::new(value);
-        self.ref_count.set(1);
+        self.ref_count.set(0);
         self.unique.set(1);
     }
     fn reinit(&mut self, value: T) {
         self.data = MaybeUninit::new(value);
-        self.ref_count.set(1);
+        self.ref_count.set(0);
         self.set_initialized();
     }
     fn is_initialized(&self) -> bool {
         return (self.unique.get() & 1) == 1;
     }
-    fn increment_unique(&mut self) {
-        self.unique.set(self.unique.get() + 2);
+    fn set_destroyed(&mut self) {
+        self.unique.set(self.unique.get() | 2);
     }
+    fn is_destroyed(&mut self) -> bool {
+        return (self.unique.get() & 2) == 2;
+    }
+
     fn set_initialized(&mut self) {
         self.unique.set(self.unique.get() | 1);
     }
+    fn increment_unique(&mut self) {
+        self.unique.set(self.unique.get() + 4);
+    }
+    //clear init and destroyed
     fn set_uninitialized(&mut self) {
-        self.unique.set(self.unique.get() & !1);
+        self.unique.set(self.unique.get() & !3);
     }
     fn is_match(&self, unique: u32) -> bool {
         return self.unique.get() == unique;
@@ -38,7 +45,7 @@ impl<T> IndexedData<T> {
 }
 
 const SLOT_NULL: u32 = 0xFFFFFFFF;
-const NON_NULL_BIT: u32 = 1<<31;
+const NON_NULL_BIT: u32 = 1 << 31;
 const REF_MASK: u32 = !NON_NULL_BIT;
 
 pub struct IndexedDataStore<'a, T> {
@@ -83,8 +90,9 @@ impl<'a, T> IndexedDataStore<'a, T> {
     unsafe fn decrement_ref_count(&self, index: u32) {
         let data = self.get_data(index);
         data.ref_count.set(data.ref_count.get() - 1);
-        if data.ref_count.get() == 0 {
+        if data.ref_count.get() == 0 && data.is_destroyed() {
             data.set_uninitialized();
+            data.increment_unique();
             ptr::drop_in_place(data.data.as_mut_ptr());
             data.ref_count.set(self.free_stack.get());
             self.free_stack.set(index);
@@ -98,18 +106,18 @@ impl<'a, T> IndexedDataStore<'a, T> {
     }
 
     /// How many objects are currently stored and accessible.
-    pub fn active(&self) -> u32 {
+    pub fn active_count(&self) -> u32 {
         return self.active_count.get();
     }
 
     /// How many objects are currently stored but marked destroyed.
-    pub fn destroyed(&self) -> u32 {
+    pub fn destroyed_count(&self) -> u32 {
         return self.destroyed_count.get();
     }
 
     /// How much free space.  Capcity - (active + destroyed).
-    pub fn available(&self) -> u32 {
-        return self.capacity() - self.active() - self.destroyed();
+    pub fn available_count(&self) -> u32 {
+        return self.capacity() - self.active_count() - self.destroyed_count();
     }
 
     /// Total fixed capacity.
@@ -125,7 +133,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
         }
         unsafe {
             let data = self.get_data(handle.index);
-            if !data.is_match(handle.unique) {
+            if !data.is_match(handle.unique.get()) {
                 return None;
             }
             data.ref_count.set(data.ref_count.get() + 1);
@@ -172,7 +180,12 @@ impl<'a, T> IndexedDataStore<'a, T> {
             // return self.get_raw(reference.index);
         }
     }
-
+    pub fn destroyed(&'a self, reference: &IndexedRef<'a, T>) -> bool {
+        unsafe {
+            let data = self.get_data(reference.index.get() & REF_MASK);
+            return data.is_destroyed();
+        }
+    }
     /// Release a strong reference.  This decrements the reference count.
     pub fn release(&'a self, reference: IndexedRef<T>) {
         unsafe {
@@ -193,7 +206,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
             self.active_count.set(active_count + 1);
             return Some(IndexedHandle {
                 index: free,
-                unique: data.unique.get(),
+                unique: unsafe { NonZeroU32::new_unchecked(data.unique.get()) },
                 _phantom: PhantomData,
             });
         } else {
@@ -209,7 +222,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
                 self.active_count.set(active_count + 1);
                 return Some(IndexedHandle {
                     index: hwm,
-                    unique: data.unique.get(),
+                    unique: unsafe { NonZeroU32::new_unchecked(data.unique.get()) },
                     _phantom: PhantomData,
                 });
             } else {
@@ -220,24 +233,42 @@ impl<'a, T> IndexedDataStore<'a, T> {
             }
         }
     }
-    pub fn free(&self, handle: IndexedHandle) -> bool {
-        if handle.index >= self.high_water_mark.get() {
-            return false;
-        }
-        let data = unsafe { self.get_data(handle.index) };
-        if !data.is_match(handle.unique) {
-            return false;
-        }
-        data.increment_unique();
-
-        self.active_count.set(self.active_count.get() - 1);
-        self.destroyed_count.set(self.destroyed_count.get() + 1);
+    /// Release a strong reference.  This decrements the reference count.
+    pub fn free(&'a self, reference: IndexedRef<T>) {
         unsafe {
-            self.decrement_ref_count(handle.index);
-        }
+            let idx = reference.index.get() & REF_MASK;
+            let data = self.get_data(idx);
 
-        return true;
+            if !data.is_destroyed() {
+                //This marks the element 'destroyed'. Safe to call multiple times
+                data.set_destroyed();
+                self.active_count.set(self.active_count.get() - 1);
+                self.destroyed_count.set(self.destroyed_count.get() + 1);
+            }
+            self.decrement_ref_count(idx);
+
+            // return Handle{index:reference.index, unique:reference.unique, _phantom:PhantomData};
+        }
     }
+    // pub fn free(&self, handle: IndexedHandle) -> bool {
+
+    //     if handle.index >= self.high_water_mark.get() {
+    //         return false;
+    //     }
+    //     let data = unsafe { self.get_data(handle.index) };
+    //     if !data.is_match(handle.unique.get()) {
+    //         return false;
+    //     }
+    //     data.increment_unique();
+
+    //     self.active_count.set(self.active_count.get() - 1);
+    //     self.destroyed_count.set(self.destroyed_count.get() + 1);
+    //     unsafe {
+    //         self.decrement_ref_count(handle.index);
+    //     }
+
+    //     return true;
+    // }
 }
 
 impl<'a, T> Drop for IndexedDataStore<'a, T> {
@@ -310,8 +341,8 @@ impl<'a, T> Eq for IndexedRef<'a, T> {}
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct IndexedHandle {
+    unique: NonZeroU32,
     index: u32,
-    unique: u32,
     _phantom: PhantomData<*mut u8>, //to disable send and sync
 }
 

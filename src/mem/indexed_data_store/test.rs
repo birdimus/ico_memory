@@ -16,10 +16,16 @@ mod test {
     static mut _IDS: IndexedDataStore<u32> =
         unsafe { IndexedDataStore::from_raw(&_BUFFER_PTR, 1024) };
 
-
     #[test]
     fn size() {
-        assert_eq!(core::mem::size_of::<Option<IndexedRef<Vec<u32>>>>(), core::mem::size_of::<IndexedRef<Vec<u32>>>());
+        assert_eq!(
+            core::mem::size_of::<Option<IndexedRef<Vec<u32>>>>(),
+            core::mem::size_of::<IndexedRef<Vec<u32>>>()
+        );
+        assert_eq!(
+            core::mem::size_of::<Option<IndexedHandle>>(),
+            core::mem::size_of::<IndexedHandle>()
+        );
     }
     #[test]
     fn lifetime() {
@@ -67,7 +73,7 @@ mod test {
                         } else {
                             assert_eq!(ids.high_water_mark(), 1024);
                         }
-                        assert_eq!(ids.active(), i + 1);
+                        assert_eq!(ids.active_count(), i + 1);
                         assert_eq!(ids.capacity(), 1024);
                     }
 
@@ -77,10 +83,10 @@ mod test {
                         ids.release(q);
                     }
                     for i in 0..1024 {
-                        ids.free(handles[i]);
+                        ids.free(ids.retain(handles[i]).unwrap());
 
                         assert_eq!(ids.high_water_mark(), 1024);
-                        assert_eq!(ids.active(), 1024 - (i as u32) - 1);
+                        assert_eq!(ids.active_count(), 1024 - (i as u32) - 1);
                         assert_eq!(ids.capacity(), 1024);
                     }
                     // for i in 0..1024{
@@ -124,10 +130,12 @@ mod test {
             for i in 0..1024 {
                 for j in 0..k + 1 {
                     if j == k {
-                        assert_eq!(ids.free(handles[i + 1024 * j]), true);
+                        // assert_eq!(ids.free(handles[i + 1024 * j]), true);
+                        let g = ids.retain(handles[i + 1024 * j]).unwrap();
+                        ids.free(g);
                     } else {
                         //ids.free(handles[i + 1024*j]);
-                        assert_eq!(ids.free(handles[i + 1024 * j]), false);
+                        assert_eq!(ids.retain(handles[i + 1024 * j]), None);
                     }
                 }
             }

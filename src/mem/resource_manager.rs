@@ -1,12 +1,11 @@
-
 use crate::mem::QueueU32;
 use crate::sync::Unique;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
+use core::num::NonZeroU32;
 use core::ptr;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
-use core::num::NonZeroU32;
 const INITIALIZED: u32 = 1; //'in use' flag
 const UNIQUE_OFFSET: u32 = 2; // unique value
 
@@ -42,7 +41,7 @@ impl<'a, T> PartialEq for ResourceRef<'a, T> {
 impl<'a, T> Eq for ResourceRef<'a, T> {}
 
 const REF_NULL: u32 = 0xFFFFFFFF;
-const NON_NULL_BIT: u32 = 1<<31;
+const NON_NULL_BIT: u32 = 1 << 31;
 const REF_MASK: u32 = !NON_NULL_BIT;
 // impl<'a, T> MaybeNull for ResourceRef<'a, T> {
 //     fn is_null(&self) -> bool {
@@ -194,7 +193,7 @@ impl<'a, T: Sync> ResourceManager<'a, T> {
     /// Release a reference previously allocated from the resource manager.
     pub fn release(&self, resource: ResourceRef<'a, T>) {
         unsafe {
-            self.decrement_ref_count(resource.index.get()  & REF_MASK);
+            self.decrement_ref_count(resource.index.get() & REF_MASK);
         }
     }
 
