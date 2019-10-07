@@ -90,7 +90,9 @@ impl<'a, T> IndexedDataStore<'a, T> {
     unsafe fn decrement_ref_count(&self, index: u32) {
         let data = self.get_data(index);
         data.ref_count.set(data.ref_count.get() - 1);
+        // println!("decrement {}", data.ref_count.get());
         if data.ref_count.get() == 0 && data.is_destroyed() {
+        	// println!("actual drop");
             data.set_uninitialized();
             data.increment_unique();
             ptr::drop_in_place(data.data.as_mut_ptr());
@@ -154,7 +156,18 @@ impl<'a, T> IndexedDataStore<'a, T> {
         // return self.get_raw(reference.index);
         // }
     }
+    pub fn handle(&'a self, reference: &IndexedRef<'a, T>) -> IndexedHandle {
+    	unsafe {
+    		let idx = reference.index.get() & REF_MASK;
+            let data = self.get_data(idx);
 
+            return IndexedHandle {
+                    index: idx,
+                    unique: NonZeroU32::new_unchecked(data.unique.get()) ,
+                    _phantom: PhantomData,
+                };
+        }
+    }
     //    pub fn invoke<F>(&'a self, reference: &'a IndexedRef<T>, closure: F)->u32
     //     where F: Fn(&mut T)->u32 {
 

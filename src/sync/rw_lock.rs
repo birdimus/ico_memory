@@ -5,6 +5,7 @@ use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct RWSpinLock<T> {
     data: UnsafeCell<T>,
     lock: AtomicU32,
@@ -175,6 +176,7 @@ impl<T> RWSpinLock<T> {
         return self.data.into_inner();
     }
 }
+#[derive(Debug)]
 pub struct RWSpinReadGuard<'a, T: 'a> {
     lock: &'a RWSpinLock<T>,
 }
@@ -191,7 +193,7 @@ impl<'a, T> Deref for RWSpinReadGuard<'a, T> {
         return unsafe { &*self.lock.data.get() };
     }
 }
-
+#[derive(Debug)]
 pub struct RWSpinWriteGuard<'a, T: 'a> {
     lock: &'a RWSpinLock<T>,
 }

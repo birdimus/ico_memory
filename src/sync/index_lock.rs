@@ -6,6 +6,7 @@ use core::sync::atomic::Ordering;
 
 /// Holds up 2^31 values
 #[repr(C)]
+#[derive(Debug)]
 pub struct Spinlock<T> {
     data: UnsafeCell<T>,
     lock: AtomicU32,
@@ -92,7 +93,7 @@ impl<T> Spinlock<T> {
 
 unsafe impl<T: Send> Send for Spinlock<T> {}
 unsafe impl<T: Send> Sync for Spinlock<T> {}
-
+#[derive(Debug)]
 pub struct SpinlockGuard<'a, T: 'a> {
     lock: &'a Spinlock<T>,
     value: u32,
@@ -130,6 +131,7 @@ impl<'a, T> DerefMut for SpinlockGuard<'a, T> {
 }
 
 /// Holds up 2^31 values
+#[derive(Debug)]
 pub struct IndexSpinlock {
     lock: AtomicU32,
 }
@@ -153,6 +155,31 @@ impl IndexSpinlock {
             return 0;
         }
         return value + 1;
+    }
+
+    #[inline(always)]
+    pub fn try_lock(&self) -> Option<IndexSpinlockGuard> {
+        let lock_value = self.lock.load(Ordering::Acquire);
+        if lock_value < IndexSpinlock::LOCK {
+            let target = lock_value | IndexSpinlock::LOCK;
+
+            match self.lock.compare_exchange_weak(
+                    lock_value,
+                    target,
+                    Ordering::Acquire,
+                    Ordering::Relaxed,
+                ) {
+                    Ok(_) => {
+                        return Some(IndexSpinlockGuard {
+                            lock: self,
+                            value: lock_value,
+                        });
+                    },
+                    Err(_) =>{},
+                };
+        }
+
+        return None;
     }
 
     #[inline(always)]
@@ -215,6 +242,7 @@ impl IndexSpinlock {
 unsafe impl Send for IndexSpinlock {}
 unsafe impl Sync for IndexSpinlock {}
 
+#[derive(Debug)]
 pub struct IndexSpinlockGuard<'a> {
     lock: &'a IndexSpinlock,
     value: u32,

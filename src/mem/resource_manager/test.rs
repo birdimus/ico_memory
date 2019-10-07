@@ -35,7 +35,7 @@ mod test {
 
     #[test]
     fn init() {
-        let _l = LOCK.lock();
+        let  _l = LOCK.lock();
         for _k in 0..65535 {
             let mut t: Vec<ResourceHandle> = Vec::new();
             for i in 0..16 {
@@ -44,12 +44,14 @@ mod test {
             for i in 0..16 {
                 assert_eq!(MANAGER.free(t.pop().unwrap()), true, "{}", i);
             }
+            // l.write(k);
         }
+
     }
 
     #[test]
     fn retain_clone_release() {
-        let _l = LOCK.lock();
+        let  _l = LOCK.lock();
         for _k in 0..65535 {
             let mut t: Vec<ResourceHandle> = Vec::new();
             let mut q: Vec<ResourceRef<Simple>> = Vec::new();
@@ -72,12 +74,13 @@ mod test {
                 MANAGER.release(q.pop().unwrap());
                 MANAGER.release(q.pop().unwrap());
             }
+            // l.write(k);
         }
     }
 
     #[test]
     fn mt_resources() {
-        let _l = LOCK.lock();
+        let  _l = LOCK.lock();
         for _k in 0..4 {
             // let mut t = m.clone();
             // Spin up another thread
@@ -89,8 +92,9 @@ mod test {
                     for i in 0..256 {
                         let tmp = MANAGER.store(Simple { data: i });
                         t.push(tmp);
-
-                        q.push(MANAGER.retain(tmp).unwrap());
+                        let r = MANAGER.retain(tmp);
+                        assert_eq!(r.is_some(),true );
+                        q.push(r.unwrap());
                     }
 
                     for i in 0..256 {
@@ -100,13 +104,20 @@ mod test {
                         assert_eq!(MANAGER.get(&q[i]).data, i as u64 % 256);
                     }
                     for i in 0..256 {
-                        assert_eq!(MANAGER.free(t.pop().unwrap()), true, "{}", i);
+                        let r = t.pop();
+                        assert_eq!(r.is_some(),true );
+                        assert_eq!(MANAGER.free(r.unwrap()), true, "{}", i);
 
                         MANAGER.release(q.pop().unwrap());
                         MANAGER.release(q.pop().unwrap());
                     }
                 }
             }));
+             for child in children {
+                // Wait for the thread to finish. Returns a result.
+                let _ = child.join();
+            }
         }
+        // l.write(12);
     }
 }
