@@ -76,7 +76,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
     // unsafe fn get_raw(&'a self, index:u32) ->&'a T{
     // 	return self.buffer.offset(index as isize).as_ref().unwrap().data.as_ptr().as_ref().unwrap();
     // }
-
+    #[inline(always)]
     unsafe fn get_data(&self, index: u32) -> &mut IndexedData<T> {
         return self
             .buffer
@@ -103,26 +103,31 @@ impl<'a, T> IndexedDataStore<'a, T> {
     }
 
     /// How much of the buffer has ever been used.
+    #[inline(always)]
     pub fn high_water_mark(&self) -> u32 {
         return self.high_water_mark.get();
     }
 
     /// How many objects are currently stored and accessible.
+    #[inline(always)]
     pub fn active_count(&self) -> u32 {
         return self.active_count.get();
     }
 
     /// How many objects are currently stored but marked destroyed.
+    #[inline(always)]
     pub fn destroyed_count(&self) -> u32 {
         return self.destroyed_count.get();
     }
 
     /// How much free space.  Capcity - (active + destroyed).
+    #[inline(always)]
     pub fn available_count(&self) -> u32 {
         return self.capacity() - self.active_count() - self.destroyed_count();
     }
 
     /// Total fixed capacity.
+    #[inline(always)]
     pub fn capacity(&self) -> u32 {
         return self.capacity;
     }
@@ -149,6 +154,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
     }
 
     /// It is imperative users not hold these references
+    #[inline(always)]
     pub unsafe fn get(&'a self, reference: &'a IndexedRef<T>) -> &'a mut T {
         // unsafe {
         let data = self.get_data(reference.index.get() & REF_MASK);
@@ -156,6 +162,7 @@ impl<'a, T> IndexedDataStore<'a, T> {
         // return self.get_raw(reference.index);
         // }
     }
+    #[inline(always)]
     pub fn handle(&'a self, reference: &IndexedRef<'a, T>) -> IndexedHandle {
     	unsafe {
     		let idx = reference.index.get() & REF_MASK;
